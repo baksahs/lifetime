@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⏳ 멀티 스케일 인생 시계 (가용 시간 & 수면 시각화)</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Malgun Gothic', -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { background-color: #0E1015; color: #FFFFFF; padding: 12px 16px; overflow-x: hidden; max-width: 1440px; margin: 0 auto; }
+
+    /* 상단 설정 컨트롤 바 (기존 Streamlit 위젯 대체) */
+    .controls-bar {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px;
+        background: #161920; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px;
+        border: 1px solid #262B36; align-items: center;
+    }
+    .control-group { display: flex; flex-direction: column; gap: 5px; }
+    .control-group label { color: #E0E0E0; font-weight: 700; font-size: 13px; display: flex; justify-content: space-between; }
+    .control-group input[type="date"],
+    .control-group select {
+        background: #222733; color: #FFFFFF; border: 1px solid #363D4E;
+        padding: 7px 10px; border-radius: 6px; font-size: 13px; outline: none; cursor: pointer;
+    }
+    .control-group input[type="range"] { accent-color: #00E676; cursor: pointer; margin-top: 4px; }
+
+    /* 상단 헤더 */
+    .header {
+        display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+        padding: 10px 16px; background: #161920; border-radius: 8px; margin-bottom: 10px;
+        border: 1px solid #262B36;
+    }
+    .header-title { font-size: 16.5px; font-weight: 700; color: #FFFFFF; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .sleep-pill {
+        font-size: 12px; font-weight: 600; background: #2D194D; color: #D1B3FF;
+        padding: 3px 10px; border-radius: 20px; border: 1px solid #5E35B1;
+    }
+    .header-clocks { display: flex; gap: 18px; font-family: 'Consolas', monospace; font-size: 14px; font-weight: 700; flex-wrap: wrap; }
+    .life-clock { color: #FFD600; }
+    .real-clock { color: #00E676; }
+
+    /* 상단 5단계 실시간 프로그레스 바 */
+    .bars-container {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;
+        background: #161920; padding: 10px 14px; border-radius: 8px; margin-bottom: 12px;
+        border: 1px solid #262B36;
+    }
+    .bar-card { display: flex; flex-direction: column; gap: 3px; }
+    .bar-title { font-size: 11.5px; color: #B0B8C4; font-weight: 600; display: flex; justify-content: space-between; }
+    .bar-pct { font-family: 'Consolas', monospace; font-size: 15px; font-weight: 700; }
+    .bar-bg { width: 100%; height: 10px; background: #262B36; border-radius: 4px; overflow: hidden; }
+    .bar-fill { height: 100%; width: 0%; }
+
+    /* 4대 패널 레이아웃 */
+    .panels-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    @media (max-width: 900px) {
+        .panels-container { grid-template-columns: 1fr !important; }
+    }
+    .panel {
+        background: #161920; padding: 14px; border-radius: 8px;
+        border: 1px solid #262B36; display: flex; flex-direction: column;
+    }
+    .panel-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; }
+    .panel-title { font-size: 14.5px; font-weight: 700; }
+    .panel-badge { font-size: 11px; font-family: 'Consolas', monospace; padding: 2px 6px; border-radius: 4px; background: #222733; color: #CCCCCC; }
+    .panel-sub { font-size: 12px; color: #9AA4B2; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+
+    /* 범례(Legend) 스타일 */
+    .legend-row {
+        display: flex; gap: 10px; font-size: 11px; color: #C0C7D2; margin-bottom: 8px;
+        background: #12151B; padding: 5px 8px; border-radius: 5px; flex-wrap: wrap;
+    }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-box { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+
+    /* 공통 셀 및 현재 위치 깜빡임(Pulse) 효과 */
+    @keyframes pulseCell {
+        0%, 100% { background-color: #FFD600 !important; transform: scale(1.28); box-shadow: 0 0 8px #FFD600; z-index: 6; }
+        50% { background-color: #FF3D00 !important; transform: scale(0.95); box-shadow: 0 0 3px #FF3D00; z-index: 6; }
+    }
+    .cell { background-color: #2B3242; border-radius: 1.5px; position: relative; }
+    .cell:hover { outline: 1.5px solid #FFFFFF; z-index: 10; cursor: pointer; }
+    .cell.active { animation: pulseCell 0.8s infinite ease-in-out; border-radius: 2px; }
+
+    /* 수면 시간대 전용 보라색 스타일 */
+    .sleep-remain { background-color: #281642; border: 0.5px solid #39205E; }
+    .sleep-done { background-color: #5E35B1; }
+
+    /* 1. [전체 단위] */
+    .grid-life-months { display: grid; grid-template-columns: repeat(40, 1fr); gap: 2.5px; width: 100%; }
+    .cell-life { aspect-ratio: 1; }
+    .done-life { background-color: #00E676; }
+
+    /* 2. [년 단위] */
+    .grid-year-days { display: grid; grid-template-columns: repeat(25, 1fr); gap: 3.5px; width: 100%; }
+    .cell-year { aspect-ratio: 1; border-radius: 2px; }
+    .done-year { background-color: #00B0FF; }
+
+    /* 3. [월 단위] */
+    .grid-month-hours { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2.5px; width: 100%; }
+    .cell-month { aspect-ratio: 1; }
+    .done-month { background-color: #FF9100; }
+
+    /* 4. [일 단위] */
+    .grid-day-minutes { display: grid; grid-template-columns: repeat(60, 1fr); gap: 2px; width: 100%; }
+    .cell-day { aspect-ratio: 1; }
+    .done-day { background-color: #FF4081; }
+
+    /* 패널 하단 요약 통계 박스 */
+    .footer-stat { margin-top: auto; padding-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+    .stat-box {
+        background: #1E222B; padding: 7px 11px; border-radius: 6px;
+        font-family: 'Consolas', monospace; font-size: 12px; color: #D5DCE6;
+        display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;
+    }
+    .stat-box-awake {
+        background: #231C35; border: 1px solid #4A2C7A; padding: 7px 11px; border-radius: 6px;
+        font-family: 'Consolas', monospace; font-size: 12px; color: #EEDCFF;
+        display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 4px;
+    }
+</style>
+</head>
+<body>
+
+    <!-- 상단 컨트롤 바 -->
+    <div class="controls-bar">
+        <div class="control-group">
+            <label for="ctrl-birth">🎂 생년월일</label>
+            <input type="date" id="ctrl-birth" value="1995-05-15" min="1920-01-01">
+        </div>
+        <div class="control-group">
+            <label for="ctrl-target"><span>🎯 기준 수명 (년)</span><span id="val-target" style="color:#00E676;">100세</span></label>
+            <input type="range" id="ctrl-target" min="80" max="120" step="5" value="100">
+        </div>
+        <div class="control-group">
+            <label for="ctrl-sleep-start">🌙 취침 시각 (수면 시작)</label>
+            <select id="ctrl-sleep-start"></select>
+        </div>
+        <div class="control-group">
+            <label for="ctrl-sleep-end">☀️ 기상 시각 (수면 종료)</label>
+            <select id="ctrl-sleep-end"></select>
+        </div>
+        <div class="control-group">
+            <label for="ctrl-year-mode">📅 '년 단위(1칸=1일)' 기준</label>
+            <select id="ctrl-year-mode">
+                <option value="calendar">달력 기준 (1월 1일~12월 31일)</option>
+                <option value="birthday">생일 기준 (내 나이 1년)</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label for="ctrl-layout">🖥️ 패널 배치 방식</label>
+            <select id="ctrl-layout">
+                <option value="2x2">2×2 그리드 (가독성 권장)</option>
+                <option value="4col">4단 가로 나열 (와이드용)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- 상단 헤더 -->
+    <div class="header">
+        <div class="header-title">
+            <span>⏳ 멀티 스케일 타임라인 (가용 시간 vs 수면 시간 시각화)</span>
+            <span class="sleep-pill" id="sleep-summary-pill">🌙 수면 설정 계산 중...</span>
+        </div>
+        <div class="header-clocks">
+            <span class="life-clock" id="life-clock">인생 24시 시계: 계산 중...</span>
+            <span class="real-clock" id="real-clock">현재 시각: 계산 중...</span>
+        </div>
+    </div>
+
+    <!-- 상단 실시간 프로그레스 바 -->
+    <div class="bars-container">
+        <div class="bar-card">
+            <div class="bar-title"><span id="bar-title-life">[전체] 100년 수명</span></div>
+            <div class="bar-pct" id="pct-life" style="color: #00E676;">0.0000000%</div>
+            <div class="bar-bg"><div class="bar-fill" id="bar-life" style="background: #00E676;"></div></div>
+        </div>
+        <div class="bar-card">
+            <div class="bar-title"><span>[년 단위] 해당 연도</span></div>
+            <div class="bar-pct" id="pct-year" style="color: #00B0FF;">0.000000%</div>
+            <div class="bar-bg"><div class="bar-fill" id="bar-year" style="background: #00B0FF;"></div></div>
+        </div>
+        <div class="bar-card">
+            <div class="bar-title"><span>[월 단위] 이번 달 전체</span><span id="awake-pct-month" style="color:#FFB74D;"></span></div>
+            <div class="bar-pct" id="pct-month" style="color: #FF9100;">0.00000%</div>
+            <div class="bar-bg"><div class="bar-fill" id="bar-month" style="background: #FF9100;"></div></div>
+        </div>
+        <div class="bar-card">
+            <div class="bar-title"><span>[일 단위] 오늘 24시간</span><span id="awake-pct-day" style="color:#FF80AB;"></span></div>
+            <div class="bar-pct" id="pct-day" style="color: #FF4081;">0.0000%</div>
+            <div class="bar-bg"><div class="bar-fill" id="bar-day" style="background: #FF4081;"></div></div>
+        </div>
+        <div class="bar-card">
+            <div class="bar-title"><span>[실시간] 현재 1분(60초)</span></div>
+            <div class="bar-pct" id="pct-min" style="color: #FFD600;">0.0초</div>
+            <div class="bar-bg"><div class="bar-fill" id="bar-min" style="background: #FFD600;"></div></div>
+        </div>
+    </div>
+
+    <!-- 4개 그래픽 패널 -->
+    <div class="panels-container" id="panels-container">
+        <!-- 1. 전체 단위 -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title" style="color: #00E676;" id="panel-title-life">[전체 단위] 100년 수명 (1칸 = 1개월)</span>
+                <span class="panel-badge" id="panel-badge-life">총 1,200칸</span>
+            </div>
+            <div class="panel-sub" id="sub-life">계산 중...</div>
+            <div class="grid-life-months" id="grid-life"></div>
+            <div class="footer-stat">
+                <div class="stat-box" id="stat-life"></div>
+                <div class="stat-box-awake" id="stat-life-awake"></div>
+            </div>
+        </div>
+
+        <!-- 2. 년 단위 -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title" style="color: #00B0FF;" id="title-year">[년 단위] 해당 연도 (1칸 = 1일)</span>
+                <span class="panel-badge" id="badge-year">총 365칸</span>
+            </div>
+            <div class="panel-sub" id="sub-year">계산 중...</div>
+            <div class="grid-year-days" id="grid-year"></div>
+            <div class="footer-stat">
+                <div class="stat-box" id="stat-year"></div>
+                <div class="stat-box-awake" id="stat-year-awake"></div>
+            </div>
+        </div>
+
+        <!-- 3. 월 단위 -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title" style="color: #FF9100;" id="title-month">[월 단위] 이번 달 (1칸 = 1시간)</span>
+                <span class="panel-badge" id="badge-month">가로 1줄 = 하루 24시간</span>
+            </div>
+            <div class="panel-sub" id="sub-month">계산 중...</div>
+            <div class="legend-row">
+                <span class="legend-item"><i class="legend-box" style="background:#FF9100;"></i>지나간 활동</span>
+                <span class="legend-item"><i class="legend-box" style="background:#5E35B1;"></i>지나간 수면</span>
+                <span class="legend-item"><i class="legend-box" style="background:#FFD600;"></i>현재 시간</span>
+                <span class="legend-item"><i class="legend-box" style="background:#2B3242;"></i><b>남은 가용(활동)</b></span>
+                <span class="legend-item"><i class="legend-box" style="background:#281642; border:1px solid #5E35B1;"></i><b>남은 수면(보라)</b></span>
+            </div>
+            <div class="grid-month-hours" id="grid-month"></div>
+            <div class="footer-stat">
+                <div class="stat-box" id="stat-month"></div>
+                <div class="stat-box-awake" id="stat-month-awake"></div>
+            </div>
+        </div>
+
+        <!-- 4. 일 단위 -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title" style="color: #FF4081;">[일 단위] 오늘 하루 (1칸 = 1분)</span>
+                <span class="panel-badge">총 1,440칸 (24시간 × 60분)</span>
+            </div>
+            <div class="panel-sub" id="sub-day">계산 중...</div>
+            <div class="legend-row">
+                <span class="legend-item"><i class="legend-box" style="background:#FF4081;"></i>지나간 활동</span>
+                <span class="legend-item"><i class="legend-box" style="background:#5E35B1;"></i>지나간 수면</span>
+                <span class="legend-item"><i class="legend-box" style="background:#FFD600;"></i>현재 분</span>
+                <span class="legend-item"><i class="legend-box" style="background:#2B3242;"></i><b>남은 가용(활동)</b></span>
+                <span class="legend-item"><i class="legend-box" style="background:#281642; border:1px solid #5E35B1;"></i><b>남은 수면(보라)</b></span>
+            </div>
+            <div class="grid-day-minutes" id="grid-day"></div>
+            <div class="footer-stat">
+                <div class="stat-box" id="stat-day"></div>
+                <div class="stat-box-awake" id="stat-day-awake"></div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const pad = (n) => String(n).padStart(2, '0');
+
+    // 시간 선택 셀렉트 박스 초기화
+    const selSleepStart = document.getElementById('ctrl-sleep-start');
+    const selSleepEnd = document.getElementById('ctrl-sleep-end');
+    for (let h = 0; h < 24; h++) {
+        const opt1 = document.createElement('option');
+        opt1.value = h;
+        opt1.textContent = h >= 18 ? `${pad(h)}:00 (밤)` : `${pad(h)}:00`;
+        selSleepStart.appendChild(opt1);
+
+        const opt2 = document.createElement('option');
+        opt2.value = h;
+        opt2.textContent = (h >= 5 && h <= 10) ? `${pad(h)}:00 (아침)` : `${pad(h)}:00`;
+        selSleepEnd.appendChild(opt2);
+    }
+
+    // 로컬 스토리지 설정 불러오기
+    const ctrlBirth = document.getElementById('ctrl-birth');
+    const ctrlTarget = document.getElementById('ctrl-target');
+    const ctrlYearMode = document.getElementById('ctrl-year-mode');
+    const ctrlLayout = document.getElementById('ctrl-layout');
+
+    ctrlBirth.value = localStorage.getItem('lc_birth') || '1995-05-15';
+    ctrlTarget.value = localStorage.getItem('lc_target') || '100';
+    selSleepStart.value = localStorage.getItem('lc_sleep_start') || '23';
+    selSleepEnd.value = localStorage.getItem('lc_sleep_end') || '7';
+    ctrlYearMode.value = localStorage.getItem('lc_year_mode') || 'calendar';
+    ctrlLayout.value = localStorage.getItem('lc_layout') || '2x2';
+
+    let birthDate, endDate, targetYears, totalMonths, isCalendarYear, sleepStart, sleepEnd;
+    let dailySleepHours = 0, dailyAwakeHours = 24, awakeRatio = 1;
+
+    let lifeCells = [], yearCells = [], monthCells = [], dayCells = [];
+    let lastLifeMonthIdx = -1, lastYearDayIdx = -1, lastMonthHourIdx = -1, lastDayMinIdx = -1;
+
+    function isSleepHour(hr) {
+        if (sleepStart === sleepEnd) return false;
+        if (sleepStart < sleepEnd) return hr >= sleepStart && hr < sleepEnd;
+        return hr >= sleepStart || hr < sleepEnd;
+    }
+
+    function addYears(dt, yrs) {
+        const copy = new Date(dt.getTime());
+        copy.setFullYear(copy.getFullYear() + yrs);
+        return copy;
+    }
+
+    // 고정 그리드 생성 (년/월/일)
+    const gridYear = document.getElementById('grid-year');
+    for (let i = 0; i < 366; i++) {
+        const d = document.createElement('div');
+        d.className = 'cell cell-year';
+        gridYear.appendChild(d);
+        yearCells.push(d);
+    }
+
+    const gridMonth = document.getElementById('grid-month');
+    for (let i = 0; i < 744; i++) {
+        const d = document.createElement('div');
+        d.className = 'cell cell-month';
+        gridMonth.appendChild(d);
+        monthCells.push(d);
+    }
+
+    const gridDay = document.getElementById('grid-day');
+    for (let i = 0; i < 1440; i++) {
+        const d = document.createElement('div');
+        d.className = 'cell cell-day';
+        gridDay.appendChild(d);
+        dayCells.push(d);
+    }
+
+    function applyConfig() {
+        // 설정 저장
+        localStorage.setItem('lc_birth', ctrlBirth.value);
+        localStorage.setItem('lc_target', ctrlTarget.value);
+        localStorage.setItem('lc_sleep_start', selSleepStart.value);
+        localStorage.setItem('lc_sleep_end', selSleepEnd.value);
+        localStorage.setItem('lc_year_mode', ctrlYearMode.value);
+        localStorage.setItem('lc_layout', ctrlLayout.value);
+
+        const parts = ctrlBirth.value.split('-');
+        birthDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 0, 0, 0);
+        targetYears = parseInt(ctrlTarget.value);
+        endDate = addYears(birthDate, targetYears);
+        totalMonths = targetYears * 12;
+        isCalendarYear = ctrlYearMode.value === 'calendar';
+        sleepStart = parseInt(selSleepStart.value);
+        sleepEnd = parseInt(selSleepEnd.value);
+
+        document.getElementById('val-target').innerText = `${targetYears}세`;
+        document.getElementById('bar-title-life').innerText = `[전체] ${targetYears}년 수명`;
+        document.getElementById('panel-title-life').innerText = `[전체 단위] ${targetYears}년 수명 (1칸 = 1개월)`;
+        document.getElementById('panel-badge-life').innerText = `총 ${totalMonths.toLocaleString()}칸`;
+
+        // 레이아웃 반영
+        const panelsContainer = document.getElementById('panels-container');
+        if (ctrlLayout.value === '2x2') {
+            panelsContainer.style.gridTemplateColumns = 'repeat(2, 1fr)';
+            gridDay.style.gridTemplateColumns = 'repeat(60, 1fr)';
+        } else {
+            panelsContainer.style.gridTemplateColumns = 'repeat(4, 1fr)';
+            gridDay.style.gridTemplateColumns = 'repeat(30, 1fr)';
+        }
+
+        // 수면 시간 계산
+        dailySleepHours = 0;
+        for (let h = 0; h < 24; h++) {
+            if (isSleepHour(h)) dailySleepHours++;
+        }
+        dailyAwakeHours = 24 - dailySleepHours;
+        awakeRatio = dailyAwakeHours / 24.0;
+
+        document.getElementById('sleep-summary-pill').innerText =
+            `🌙 수면 ${pad(sleepStart)}:00~${pad(sleepEnd)}:00 (하루 ${dailySleepHours}시간 수면 / ☀️ 가용 ${dailyAwakeHours}시간)`;
+
+        // 전체 수명 그리드 재생성
+        const gridLife = document.getElementById('grid-life');
+        gridLife.innerHTML = '';
+        lifeCells = [];
+        for (let i = 0; i < totalMonths; i++) {
+            const d = document.createElement('div');
+            d.className = 'cell cell-life';
+            const yr = Math.floor(i / 12);
+            const mo = (i % 12) + 1;
+            d.title = `[전체 수명] ${i + 1}번째 달 (만 ${yr}세 ${mo}개월차)`;
+            gridLife.appendChild(d);
+            lifeCells.push(d);
+        }
+
+        // 월/일 툴팁 업데이트
+        for (let i = 0; i < 744; i++) {
+            const dayNum = Math.floor(i / 24) + 1;
+            const hourNum = i % 24;
+            const sleepTag = isSleepHour(hourNum) ? '💤 수면 시간대' : '☀️ 가용 활동 시간';
+            monthCells[i].title = `[이번 달] ${dayNum}일 ${pad(hourNum)}:00~${pad(hourNum)}:59 (${sleepTag})`;
+        }
+        for (let i = 0; i < 1440; i++) {
+            const hr = Math.floor(i / 60);
+            const mn = i % 60;
+            const sleepTag = isSleepHour(hr) ? '💤 수면 시간대' : '☀️ 가용 활동 시간';
+            dayCells[i].title = `[오늘 하루] ${pad(hr)}시 ${pad(mn)}분 (${sleepTag})`;
+        }
+
+        // 인덱스 초기화하여 즉시 리렌더링 유도
+        lastLifeMonthIdx = -1;
+        lastYearDayIdx = -1;
+        lastMonthHourIdx = -1;
+        lastDayMinIdx = -1;
+    }
+
+    [ctrlBirth, ctrlTarget, selSleepStart, selSleepEnd, ctrlYearMode, ctrlLayout].forEach(el => {
+        el.addEventListener('change', applyConfig);
+        el.addEventListener('input', applyConfig);
+    });
+
+    function updateDashboard() {
+        const now = new Date();
+
+        const totalLifeMs = endDate - birthDate;
+        const livedMs = Math.max(0, now - birthDate);
+        const lifePct = Math.min(100, (livedMs / totalLifeMs) * 100);
+
+        const lifeDaySec = (lifePct / 100) * 86400;
+        const lh = pad(Math.floor(lifeDaySec / 3600));
+        const lm = pad(Math.floor((lifeDaySec % 3600) / 60));
+        const ls = (lifeDaySec % 60).toFixed(2).padStart(5, '0');
+        document.getElementById('life-clock').innerText = `인생 24시 시계 ${lh}:${lm}:${ls}`;
+
+        const msStr = String(now.getMilliseconds()).padStart(3, '0').slice(0, 2);
+        document.getElementById('real-clock').innerText =
+            `현재 ${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}.${msStr}`;
+
+        // 1. 전체 단위
+        let monthsLived = (now.getFullYear() - birthDate.getFullYear()) * 12 + (now.getMonth() - birthDate.getMonth());
+        if (now.getDate() < birthDate.getDate()) monthsLived -= 1;
+        monthsLived = Math.max(0, Math.min(totalMonths - 1, monthsLived));
+
+        if (monthsLived !== lastLifeMonthIdx) {
+            lastLifeMonthIdx = monthsLived;
+            lifeCells.forEach((cell, i) => {
+                cell.className = 'cell cell-life';
+                if (i < monthsLived) cell.classList.add('done-life');
+                else if (i === monthsLived) cell.classList.add('active');
+            });
+            const ageYr = Math.floor(monthsLived / 12);
+            const ageMo = monthsLived % 12;
+            const remMonths = Math.max(0, totalMonths - 1 - monthsLived);
+            const remAwakeMonths = (remMonths * awakeRatio).toFixed(1);
+
+            document.getElementById('sub-life').innerText = `현재 만 ${ageYr}세 ${ageMo}개월차 진행 중 (1칸 = 1개월)`;
+            document.getElementById('stat-life').innerHTML =
+                `<span>지나간 달: <b>${monthsLived.toLocaleString()}개월</b></span>` +
+                `<span>현재: <b style="color:#FFD600;">${monthsLived + 1}번째 달</b></span>` +
+                `<span>남은 달: <b>${remMonths.toLocaleString()}개월</b></span>`;
+            document.getElementById('stat-life-awake').innerHTML =
+                `<span>☀️ 수면 제외 남은 실질 가용 환산:</span>` +
+                `<span>약 <b style="color:#00E676;">${remAwakeMonths}개월</b> (${(remAwakeMonths/12).toFixed(1)}년)</span>`;
+        }
+
+        // 2. 년 단위
+        let yearStart, yearEnd, yearLabel;
+        if (isCalendarYear) {
+            yearStart = new Date(now.getFullYear(), 0, 1);
+            yearEnd = new Date(now.getFullYear() + 1, 0, 1);
+            yearLabel = `${now.getFullYear()}년`;
+        } else {
+            let ageYears = now.getFullYear() - birthDate.getFullYear();
+            let thisBday = addYears(birthDate, ageYears);
+            if (now < thisBday) {
+                ageYears -= 1;
+                yearStart = addYears(birthDate, ageYears);
+                yearEnd = thisBday;
+            } else {
+                yearStart = thisBday;
+                yearEnd = addYears(birthDate, ageYears + 1);
+            }
+            yearLabel = `만 ${ageYears}세 연도`;
+        }
+
+        const yearSpanMs = yearEnd - yearStart;
+        const yearLivedMs = now - yearStart;
+        const yearPct = Math.min(100, (yearLivedMs / yearSpanMs) * 100);
+        const totalDaysInYear = Math.round(yearSpanMs / 86400000);
+        const dayOfYearIdx = Math.floor(yearLivedMs / 86400000);
+
+        if (dayOfYearIdx !== lastYearDayIdx) {
+            lastYearDayIdx = dayOfYearIdx;
+            document.getElementById('title-year').innerText = `[년 단위] ${yearLabel} (1칸 = 1일)`;
+            document.getElementById('badge-year').innerText = `총 ${totalDaysInYear}칸 (${totalDaysInYear}일)`;
+
+            yearCells.forEach((cell, i) => {
+                cell.className = 'cell cell-year';
+                if (i >= totalDaysInYear) {
+                    cell.style.visibility = 'hidden';
+                } else {
+                    cell.style.visibility = 'visible';
+                    const cellDate = new Date(yearStart.getTime() + i * 86400000);
+                    cell.title = `[${yearLabel}] ${cellDate.getFullYear()}-${pad(cellDate.getMonth()+1)}-${pad(cellDate.getDate())} (${i + 1}일째)`;
+                    if (i < dayOfYearIdx) cell.classList.add('done-year');
+                    else if (i === dayOfYearIdx) cell.classList.add('active');
+                }
+            });
+            const remDaysInYear = Math.max(0, totalDaysInYear - 1 - dayOfYearIdx);
+            const remAwakeHoursInYear = remDaysInYear * dailyAwakeHours;
+
+            document.getElementById('sub-year').innerText = `${yearLabel}의 ${dayOfYearIdx + 1}일째 진행 중 (1칸 = 1일)`;
+            document.getElementById('stat-year').innerHTML =
+                `<span>지나간 날: <b>${dayOfYearIdx}일</b></span>` +
+                `<span>오늘: <b style="color:#FFD600;">${dayOfYearIdx + 1}일째</b></span>` +
+                `<span>남은 날: <b>${remDaysInYear}일</b></span>`;
+            document.getElementById('stat-year-awake').innerHTML =
+                `<span>☀️ 올해 남은 날의 총 가용 활동 시간:</span>` +
+                `<span><b style="color:#00B0FF;">${remAwakeHoursInYear.toLocaleString()}시간</b> (온전한 ${(remAwakeHoursInYear/24).toFixed(1)}일분)</span>`;
+        }
+
+        // 3. 월 단위
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const daysInMonth = Math.round((monthEnd - monthStart) / 86400000);
+        const totalHoursInMonth = daysInMonth * 24;
+        const monthPct = ((now - monthStart) / (monthEnd - monthStart)) * 100;
+        const hourOfMonthIdx = (now.getDate() - 1) * 24 + now.getHours();
+
+        if (hourOfMonthIdx !== lastMonthHourIdx) {
+            lastMonthHourIdx = hourOfMonthIdx;
+            document.getElementById('title-month').innerText = `[월 단위] ${now.getMonth() + 1}월 (1칸 = 1시간)`;
+            document.getElementById('badge-month').innerText = `총 ${totalHoursInMonth}칸 (${daysInMonth}일 × 24h)`;
+
+            let passedAwakeHours = 0, remAwakeHours = 0, remSleepHours = 0;
+
+            monthCells.forEach((cell, i) => {
+                cell.className = 'cell cell-month';
+                if (i >= totalHoursInMonth) {
+                    cell.style.visibility = 'hidden';
+                } else {
+                    cell.style.visibility = 'visible';
+                    const hr = i % 24;
+                    const sleep = isSleepHour(hr);
+
+                    if (i < hourOfMonthIdx) {
+                        if (sleep) cell.classList.add('sleep-done');
+                        else { cell.classList.add('done-month'); passedAwakeHours++; }
+                    } else if (i === hourOfMonthIdx) {
+                        cell.classList.add('active');
+                    } else {
+                        if (sleep) { cell.classList.add('sleep-remain'); remSleepHours++; }
+                        else { remAwakeHours++; }
+                    }
+                }
+            });
+
+            const totalMonthAwake = daysInMonth * dailyAwakeHours;
+            const monthAwakePct = totalMonthAwake > 0 ? ((passedAwakeHours / totalMonthAwake) * 100).toFixed(1) : "0.0";
+            document.getElementById('awake-pct-month').innerText = `가용 기준 ${monthAwakePct}% 소진`;
+
+            document.getElementById('sub-month').innerHTML =
+                `<span>${now.getMonth() + 1}월 ${now.getDate()}일 ${now.getHours()}시 진행 중</span>` +
+                `<span style="color:#D1B3FF;">보라색 기둥 = 수면 시간대</span>`;
+            document.getElementById('stat-month').innerHTML =
+                `<span>지나간 시간: <b>${hourOfMonthIdx}h</b></span>` +
+                `<span>현재: <b style="color:#FFD600;">${hourOfMonthIdx + 1}번째 시간</b></span>` +
+                `<span>전체 남은 시간: <b>${totalHoursInMonth - 1 - hourOfMonthIdx}h</b></span>`;
+            document.getElementById('stat-month-awake').innerHTML =
+                `<span>☀️ 이번 달 남은 실질 가용: <b style="color:#FF9100; font-size:13px;">${remAwakeHours}시간</b></span>` +
+                `<span>(💤 남은 수면 ${remSleepHours}시간 제외)</span>`;
+        }
+
+        // 4. 일 단위
+        const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const dayPct = ((now - dayStart) / 86400000) * 100;
+        const minOfDayIdx = now.getHours() * 60 + now.getMinutes();
+
+        if (minOfDayIdx !== lastDayMinIdx) {
+            lastDayMinIdx = minOfDayIdx;
+            let passedAwakeMins = 0, remAwakeMins = 0, remSleepMins = 0;
+
+            dayCells.forEach((cell, i) => {
+                cell.className = 'cell cell-day';
+                const hr = Math.floor(i / 60);
+                const sleep = isSleepHour(hr);
+
+                if (i < minOfDayIdx) {
+                    if (sleep) cell.classList.add('sleep-done');
+                    else { cell.classList.add('done-day'); passedAwakeMins++; }
+                } else if (i === minOfDayIdx) {
+                    cell.classList.add('active');
+                } else {
+                    if (sleep) { cell.classList.add('sleep-remain'); remSleepMins++; }
+                    else { remAwakeMins++; }
+                }
+            });
+
+            const totalDayAwakeMins = dailyAwakeHours * 60;
+            const dayAwakePct = totalDayAwakeMins > 0 ? ((passedAwakeMins / totalDayAwakeMins) * 100).toFixed(1) : "0.0";
+            document.getElementById('awake-pct-day').innerText = `가용 기준 ${dayAwakePct}% 소진`;
+
+            const remAwakeHr = Math.floor(remAwakeMins / 60);
+            const remAwakeMn = remAwakeMins % 60;
+            const curStateStr = isSleepHour(now.getHours()) ? "💤 현재 수면 시간대" : "☀️ 현재 가용 활동 시간대";
+
+            document.getElementById('sub-day').innerHTML =
+                `<span>오늘 ${pad(now.getHours())}시 ${pad(now.getMinutes())}분 진행 중</span>` +
+                `<span style="color:#FF80AB; font-weight:600;">${curStateStr}</span>`;
+            document.getElementById('stat-day').innerHTML =
+                `<span>경과: <b>${minOfDayIdx}분</b></span>` +
+                `<span>현재: <b style="color:#FFD600;">${minOfDayIdx + 1}번째 분</b></span>` +
+                `<span>자정까지: <b>${1439 - minOfDayIdx}분</b></span>`;
+            document.getElementById('stat-day-awake').innerHTML =
+                `<span>☀️ 오늘 남은 실질 가용: <b style="color:#FF4081; font-size:13px;">${remAwakeHr}시간 ${remAwakeMn}분 (${remAwakeMins}분)</b></span>` +
+                `<span>(💤 수면 ${remSleepMins}분 제외)</span>`;
+        }
+
+        // 5. 실시간 상단 게이지
+        const secInMin = now.getSeconds() + now.getMilliseconds() / 1000;
+        const minPct = (secInMin / 60) * 100;
+
+        document.getElementById('pct-life').innerText = lifePct.toFixed(7) + '%';
+        document.getElementById('bar-life').style.width = lifePct + '%';
+
+        document.getElementById('pct-year').innerText = yearPct.toFixed(6) + '%';
+        document.getElementById('bar-year').style.width = yearPct + '%';
+
+        document.getElementById('pct-month').innerText = monthPct.toFixed(5) + '%';
+        document.getElementById('bar-month').style.width = monthPct + '%';
+
+        document.getElementById('pct-day').innerText = dayPct.toFixed(4) + '%';
+        document.getElementById('bar-day').style.width = dayPct + '%';
+
+        document.getElementById('pct-min').innerText = secInMin.toFixed(1) + '초 / 60초';
+        document.getElementById('bar-min').style.width = minPct + '%';
+
+        requestAnimationFrame(updateDashboard);
+    }
+
+    applyConfig();
+    requestAnimationFrame(updateDashboard);
+</script>
+</body>
+</html>
