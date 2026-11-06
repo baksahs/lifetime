@@ -632,25 +632,33 @@
       <!-- 원형 팔레트 정중앙: 물감 조색 & 컨트롤 허브 (Center Mixing Hub) -->
       <div class="relative z-20 w-[188px] h-[188px] sm:w-[244px] sm:h-[244px] rounded-full bg-[#fcfaf5]/95 border-2 border-stone-300/90 shadow-inner flex flex-col items-center justify-center p-3 sm:p-4 text-center">
 
-        <!-- (기본 모드) 현재 선택된 물감 정보 + 황금/검은 테두리 즉시 전환 + 새 물감 짜기 버튼 -->
-        <div id="palette-center-default" class="w-full space-y-2">
-          <div class="text-[10px] font-bold uppercase tracking-wider text-stone-400">Active Paint</div>
+        <!-- (기본 모드) 현재 선택된 물감 정보 + 수정/삭제 + 황금/검은 테두리 즉시 전환 + 새 물감 짜기 버튼 -->
+        <div id="palette-center-default" class="w-full space-y-1.5 sm:space-y-2">
+          <div class="flex items-center justify-center gap-1.5">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-stone-400">Active Paint</span>
+            <button onclick="openEditActivePaintMixer()" class="px-1.5 py-0.5 rounded-md bg-stone-200/90 hover:bg-amber-200 text-stone-700 hover:text-stone-950 text-[10px] font-bold transition cursor-pointer" title="현재 선택된 물감 이름·색상·테두리 수정">
+              ✎ 수정
+            </button>
+            <button onclick="deleteActivePaint()" class="px-1.5 py-0.5 rounded-md bg-stone-200/90 hover:bg-rose-100 text-stone-600 hover:text-rose-700 text-[10px] font-bold transition cursor-pointer" title="현재 선택된 물감 삭제">
+              🗑️ 삭제
+            </button>
+          </div>
 
           <!-- 현재 물감 미리보기 & 즐겨찾기 별표 토글 -->
           <div class="flex items-center justify-center gap-2">
-            <button onclick="toggleActivePaintFavorite()" id="center-fav-btn" class="text-lg leading-none hover:scale-125 transition" title="★ 루틴 즐겨찾기 토글 (켜면 매일 상시 존재, 끄면 오늘만 존재)">
+            <button onclick="toggleActivePaintFavorite()" id="center-fav-btn" class="text-lg leading-none hover:scale-125 transition cursor-pointer" title="★ 루틴 즐겨찾기 토글 (켜면 매일 상시 존재, 끄면 오늘만 존재)">
               ★
             </button>
-            <span id="center-paint-swatch" class="w-7 h-7 rounded-full border-gold-ring shrink-0" style="background:#f59e0b;"></span>
-            <span id="center-paint-title" class="text-xs sm:text-sm font-extrabold text-stone-900 max-w-[115px] truncate">깊은 몰입</span>
+            <span onclick="openEditActivePaintMixer()" id="center-paint-swatch" class="w-7 h-7 rounded-full border-gold-ring shrink-0 cursor-pointer hover:scale-105 transition" style="background:#f59e0b;" title="클릭하여 이 물감 수정"></span>
+            <span onclick="openEditActivePaintMixer()" id="center-paint-title" class="text-xs sm:text-sm font-extrabold text-stone-900 max-w-[115px] truncate cursor-pointer hover:underline" title="클릭하여 이 물감 수정">깊은 몰입</span>
           </div>
 
           <!-- 선택된 물감의 테두리(긍정=황금 / 부정=검정) 즉시 스위치 -->
           <div class="grid grid-cols-2 gap-1 bg-stone-200/80 p-1 rounded-full text-[10px] font-bold">
-            <button onclick="setActivePaintBorderType('gold')" id="center-border-gold-btn" class="py-1 rounded-full bg-stone-900 text-amber-300 shadow-2xs transition">
+            <button onclick="setActivePaintBorderType('gold')" id="center-border-gold-btn" class="py-1 rounded-full bg-stone-900 text-amber-300 shadow-2xs transition cursor-pointer">
               ✨ 황금테두리(긍정)
             </button>
-            <button onclick="setActivePaintBorderType('black')" id="center-border-black-btn" class="py-1 rounded-full text-stone-600 hover:text-stone-900 transition">
+            <button onclick="setActivePaintBorderType('black')" id="center-border-black-btn" class="py-1 rounded-full text-stone-600 hover:text-stone-900 transition cursor-pointer">
               ⬛ 검은테두리(부정)
             </button>
           </div>
@@ -666,31 +674,31 @@
 
           <!-- 새 물감 짜기 모드로 전환 버튼 -->
           <div class="pt-1 flex items-center justify-center gap-1.5">
-            <button onclick="openNewPaintMixer()" class="px-3 py-1.5 rounded-full bg-stone-900 hover:bg-stone-800 text-amber-300 text-[11px] font-bold shadow-xs transition flex items-center gap-1">
+            <button onclick="openNewPaintMixer()" class="px-3 py-1.5 rounded-full bg-stone-900 hover:bg-stone-800 text-amber-300 text-[11px] font-bold shadow-xs transition flex items-center gap-1 cursor-pointer">
               <span>➕</span><span>새 물감 짜기</span>
             </button>
-            <button onclick="selectEraser(); if(!state.pinPalette) closeArtistPalette();" class="px-2.5 py-1.5 rounded-full bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold transition">
+            <button onclick="selectEraser(); if(!state.pinPalette) closeArtistPalette();" class="px-2.5 py-1.5 rounded-full bg-stone-200 hover:bg-stone-300 text-stone-700 text-[11px] font-bold transition cursor-pointer">
               🫧 지우개
             </button>
           </div>
         </div>
 
-        <!-- (조색 모드) 모든 색상 선택 + 황금/검은 테두리 선택 + ★ 루틴 별표 토글 폼 -->
+        <!-- (조색 & 수정 겸용 모드) 모든 색상 선택 + 황금/검은 테두리 선택 + ★ 루틴 별표 토글 폼 -->
         <div id="palette-center-mixer" class="hidden w-full space-y-2 text-left">
           <div class="flex items-center justify-between">
-            <span class="text-[11px] font-extrabold text-stone-900">🎨 새 물감 조색</span>
-            <button onclick="closeNewPaintMixer()" class="text-[11px] text-stone-400 hover:text-stone-700 font-bold">취소 ✕</button>
+            <span id="mixer-mode-title" class="text-[11px] font-extrabold text-stone-900">🎨 새 물감 조색</span>
+            <button onclick="closeNewPaintMixer()" class="text-[11px] text-stone-400 hover:text-stone-700 font-bold cursor-pointer">취소 ✕</button>
           </div>
 
           <!-- 할 일 이름 + ★ 루틴 즐겨찾기 별표 토글 -->
           <div class="flex items-center gap-1">
-            <button type="button" onclick="toggleNewPaintFavorite()" id="new-paint-fav-btn" class="w-7 h-7 rounded-xl border border-amber-300 bg-amber-50 text-amber-500 font-bold text-sm flex items-center justify-center shrink-0" title="★ 켜면 상시 루틴 물감, ☆ 끄면 오늘만 쓰는 당일 물감">
+            <button type="button" onclick="toggleNewPaintFavorite()" id="new-paint-fav-btn" class="w-7 h-7 rounded-xl border border-amber-300 bg-amber-50 text-amber-500 font-bold text-sm flex items-center justify-center shrink-0 cursor-pointer" title="★ 켜면 상시 루틴 물감, ☆ 끄면 오늘만 쓰는 당일 물감">
               ★
             </button>
-            <input id="new-paint-name" type="text" placeholder="할 일 이름 입력..." class="w-full px-2.5 py-1 text-xs bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500" />
+            <input id="new-paint-name" type="text" placeholder="할 일 이름 입력..." onkeydown="if(event.key==='Enter'){savePaintFromMixer();}" class="w-full px-2.5 py-1 text-xs bg-white border border-stone-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500" />
           </div>
 
-          <!-- 모든 색상 자유 선택 (컬러 피커 + 10종 감성 스와치) -->
+          <!-- 모든 색상 자유 선택 (컬러 피커 + 12종 감성 스와치) -->
           <div class="flex items-center gap-1.5">
             <input type="color" id="new-paint-color" value="#6366f1" class="w-7 h-7 rounded-lg cursor-pointer border border-stone-300 bg-white p-0.5 shrink-0" title="모든 색상 자유 선택" />
             <div id="all-color-swatches" class="flex items-center gap-1 flex-wrap flex-1">
@@ -700,17 +708,22 @@
 
           <!-- 테두리 기준 선택: 황금색 테두리(긍정) vs 검은색 테두리(부정) -->
           <div class="grid grid-cols-2 gap-1 text-[10px]">
-            <button type="button" onclick="setNewPaintBorderType('gold')" id="btn-new-border-gold" class="py-1 px-1.5 rounded-lg font-bold border-2 border-amber-400 bg-amber-50 text-amber-950 text-center">
+            <button type="button" onclick="setNewPaintBorderType('gold')" id="btn-new-border-gold" class="py-1 px-1.5 rounded-lg font-bold border-2 border-amber-400 bg-amber-50 text-amber-950 text-center cursor-pointer">
               ✨ 황금테두리(긍정)
             </button>
-            <button type="button" onclick="setNewPaintBorderType('black')" id="btn-new-border-black" class="py-1 px-1.5 rounded-lg font-semibold border border-stone-300 bg-white text-stone-600 text-center">
+            <button type="button" onclick="setNewPaintBorderType('black')" id="btn-new-border-black" class="py-1 px-1.5 rounded-lg font-semibold border border-stone-300 bg-white text-stone-600 text-center cursor-pointer">
               ⬛ 검은테두리(부정)
             </button>
           </div>
 
-          <button onclick="addCustomPaint()" class="w-full py-1.5 rounded-full bg-stone-900 hover:bg-stone-800 text-amber-300 text-[11px] font-bold text-center shadow-xs">
-            팔레트에 물감 올리기
-          </button>
+          <div class="flex items-center gap-1.5">
+            <button type="button" id="btn-mixer-delete" onclick="deleteEditingPaintFromMixer()" class="hidden px-2.5 py-1.5 rounded-full bg-rose-100 hover:bg-rose-200 text-rose-700 text-[11px] font-bold transition cursor-pointer shrink-0" title="이 물감 삭제">
+              🗑️ 삭제
+            </button>
+            <button type="button" id="btn-mixer-submit" onclick="savePaintFromMixer()" class="flex-1 py-1.5 rounded-full bg-stone-900 hover:bg-stone-800 text-amber-300 text-[11px] font-bold text-center shadow-xs cursor-pointer">
+              팔레트에 물감 올리기
+            </button>
+          </div>
         </div>
 
       </div>
@@ -880,7 +893,8 @@
       activePaintId: 'fix_focus',
       isEraserMode: false,
 
-      // 새 물감 조색 폼 상태
+      // 새 물감 조색 & 기존 물감 수정 폼 상태
+      editingPaintId: null,       // null이면 새 물감 추가, 문자열이면 해당 ID 물감 수정
       newPaintBorderType: 'gold', // 'gold' | 'black'
       newPaintIsFavorite: true,   // true(★ 루틴) | false(☆ 당일)
 
@@ -1335,10 +1349,6 @@
         const starChar = p.isFavorite ? '★' : '☆';
         const starColor = p.isFavorite ? 'text-amber-400' : 'text-stone-400 hover:text-amber-300';
 
-        const deleteBtn = !p.isFavorite
-          ? `<button onclick="event.stopPropagation(); deleteDailyPaint('${p.id}')" class="w-4 h-4 rounded-full bg-stone-900/80 text-stone-300 hover:text-rose-400 text-[9px] flex items-center justify-center" title="당일 물감 삭제">✕</button>`
-          : '';
-
         html += `
           <div onclick="selectPaint('${p.id}')"
                style="left:${leftPct.toFixed(2)}%; top:${topPct.toFixed(2)}%;"
@@ -1352,16 +1362,30 @@
 
               <!-- ★ 루틴 즐겨찾기 별표 토글 뱃지 -->
               <button onclick="event.stopPropagation(); togglePaintFavoriteById('${p.id}')"
-                      class="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-stone-900 border border-stone-600 ${starColor} text-xs flex items-center justify-center shadow-sm hover:scale-110 transition"
+                      class="absolute -top-1.5 -left-1.5 w-5 h-5 rounded-full bg-stone-900 border border-stone-600 ${starColor} text-xs flex items-center justify-center shadow-sm hover:scale-110 transition cursor-pointer"
                       title="${p.isFavorite ? '★ 상시 루틴 즐겨찾기 중 (클릭 시 당일 물감으로 전환)' : '☆ 당일 전용 물감 (클릭 시 ★ 상시 루틴으로 등록)'}">
                 ${starChar}
               </button>
 
-              ${deleteBtn ? `<div class="absolute -top-1.5 -right-1.5">${deleteBtn}</div>` : ''}
+              <!-- 우측 상단: 물감 수정(✎) & 삭제(✕) 퀵 버튼 -->
+              <div class="absolute -top-1.5 -right-2.5 flex items-center gap-0.5 opacity-85 group-hover:opacity-100 transition">
+                <button onclick="event.stopPropagation(); openEditPaintMixerById('${p.id}')"
+                        class="w-4 h-4 rounded-full bg-stone-900/90 hover:bg-amber-400 text-stone-200 hover:text-stone-950 border border-stone-600 text-[9px] flex items-center justify-center shadow-xs transition cursor-pointer"
+                        title="이 물감 수정 (이름·색상·테두리)">
+                  ✎
+                </button>
+                <button onclick="event.stopPropagation(); deletePaintById('${p.id}')"
+                        class="w-4 h-4 rounded-full bg-stone-900/90 hover:bg-rose-600 text-stone-300 hover:text-white border border-stone-600 text-[9px] flex items-center justify-center shadow-xs transition cursor-pointer"
+                        title="이 물감 삭제">
+                  ✕
+                </button>
+              </div>
             </div>
 
             <!-- 물감 이름 & 테두리 종류 캡션 -->
-            <div class="mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap shadow-xs flex items-center gap-1 ${isSelected ? 'bg-stone-900 text-amber-300 ring-1 ring-amber-400' : 'bg-[#fcfaf5]/95 text-stone-800 border border-stone-300/80'}">
+            <div ondblclick="event.stopPropagation(); openEditPaintMixerById('${p.id}')"
+                 title="클릭하여 선택 · 더블클릭하여 수정"
+                 class="mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap shadow-xs flex items-center gap-1 ${isSelected ? 'bg-stone-900 text-amber-300 ring-1 ring-amber-400' : 'bg-[#fcfaf5]/95 text-stone-800 border border-stone-300/80'}">
               <span>${p.borderType === 'black' ? '⬛' : '✨'}</span>
               <span class="max-w-[76px] sm:max-w-[92px] truncate">${p.name}</span>
             </div>
@@ -1374,7 +1398,8 @@
     }
 
     function updatePaletteCenterAndDockUI() {
-      const activePaint = getPaintById(state.activePaintId) || state.fixedPaints[0];
+      const allPaints = getAllPaintsForDate(state.selectedDate);
+      const activePaint = getPaintById(state.activePaintId) || allPaints[0] || state.fixedPaints[0];
       if (!activePaint) return;
       state.activePaintId = activePaint.id;
 
@@ -1416,22 +1441,22 @@
 
       if (centerSwatch) {
         centerSwatch.style.background = activePaint.color;
-        centerSwatch.className = `w-7 h-7 rounded-full shrink-0 ${borderClass}`;
+        centerSwatch.className = `w-7 h-7 rounded-full shrink-0 cursor-pointer hover:scale-105 transition ${borderClass}`;
       }
       if (centerTitle) centerTitle.textContent = activePaint.name;
       if (centerFavBtn) {
         centerFavBtn.textContent = activePaint.isFavorite ? '★' : '☆';
         centerFavBtn.className = activePaint.isFavorite
-          ? 'text-lg leading-none text-amber-500 hover:scale-125 transition'
-          : 'text-lg leading-none text-stone-400 hover:text-amber-500 hover:scale-125 transition';
+          ? 'text-lg leading-none text-amber-500 hover:scale-125 transition cursor-pointer'
+          : 'text-lg leading-none text-stone-400 hover:text-amber-500 hover:scale-125 transition cursor-pointer';
       }
       if (goldBtn && blackBtn) {
         if (isGold) {
-          goldBtn.className = 'py-1 rounded-full bg-stone-900 text-amber-300 shadow-2xs transition';
-          blackBtn.className = 'py-1 rounded-full text-stone-600 hover:text-stone-900 transition';
+          goldBtn.className = 'py-1 rounded-full bg-stone-900 text-amber-300 shadow-2xs transition cursor-pointer';
+          blackBtn.className = 'py-1 rounded-full text-stone-600 hover:text-stone-900 transition cursor-pointer';
         } else {
-          blackBtn.className = 'py-1 rounded-full bg-stone-900 text-white shadow-2xs transition';
-          goldBtn.className = 'py-1 rounded-full text-stone-600 hover:text-stone-900 transition';
+          blackBtn.className = 'py-1 rounded-full bg-stone-900 text-white shadow-2xs transition cursor-pointer';
+          goldBtn.className = 'py-1 rounded-full text-stone-600 hover:text-stone-900 transition cursor-pointer';
         }
       }
     }
@@ -1463,8 +1488,9 @@
     function togglePaintFavoriteById(paintId) {
       const inFixedIdx = state.fixedPaints.findIndex(p => p.id === paintId);
       if (inFixedIdx !== -1) {
-        if (state.fixedPaints.length <= 1) {
-          showToast('최소 1개의 상시 루틴 물감은 남겨두어야 합니다.', 'amber');
+        const allAvailable = getAllPaintsForDate(state.selectedDate);
+        if (state.fixedPaints.length <= 1 && allAvailable.length <= 1) {
+          showToast('최소 1개의 물감은 팔레트에 남아있어야 합니다.', 'amber');
           return;
         }
         const [removed] = state.fixedPaints.splice(inFixedIdx, 1);
@@ -1505,6 +1531,7 @@
       renderCircularPalette();
       drawDailyGridCanvasFrame();
       updateDailyMemoryGemUI();
+      renderDailyGridNotesList();
       analyzeCircularCanvasArea();
       if (state.currentView === 'month') renderMonthView();
       if (state.currentView === 'year') renderYearView();
@@ -1520,14 +1547,88 @@
       );
     }
 
-    // 원형 팔레트 중앙 새 물감 조색기 제어
+    function syncNewPaintFavoriteButtonUI() {
+      const btn = document.getElementById('new-paint-fav-btn');
+      if (!btn) return;
+      if (state.newPaintIsFavorite) {
+        btn.textContent = '★';
+        btn.className = 'w-7 h-7 rounded-xl border border-amber-300 bg-amber-50 text-amber-500 font-bold text-sm flex items-center justify-center shrink-0 cursor-pointer';
+      } else {
+        btn.textContent = '☆';
+        btn.className = 'w-7 h-7 rounded-xl border border-stone-300 bg-white text-stone-400 font-bold text-sm flex items-center justify-center shrink-0 cursor-pointer';
+      }
+    }
+
+    // 원형 팔레트 중앙: 새 물감 조색 모드로 열기
     function openNewPaintMixer() {
+      state.editingPaintId = null;
+      state.newPaintIsFavorite = true;
+      state.newPaintBorderType = 'gold';
+
+      const titleEl = document.getElementById('mixer-mode-title');
+      const submitBtn = document.getElementById('btn-mixer-submit');
+      const deleteBtn = document.getElementById('btn-mixer-delete');
+      const nameInput = document.getElementById('new-paint-name');
+      const colorInput = document.getElementById('new-paint-color');
+
+      if (titleEl) titleEl.textContent = '🎨 새 물감 조색';
+      if (submitBtn) submitBtn.textContent = '팔레트에 물감 올리기';
+      if (deleteBtn) deleteBtn.classList.add('hidden');
+      if (nameInput) nameInput.value = '';
+      if (colorInput) colorInput.value = '#6366f1';
+
+      syncNewPaintFavoriteButtonUI();
+      setNewPaintBorderType('gold');
+
       document.getElementById('palette-center-default').classList.add('hidden');
       document.getElementById('palette-center-mixer').classList.remove('hidden');
-      document.getElementById('new-paint-name').focus();
+      if (nameInput) nameInput.focus();
+    }
+
+    // 원형 팔레트 중앙: 기존 물감 수정 모드로 열기
+    function openEditPaintMixerById(paintId) {
+      const paint = getPaintById(paintId, state.selectedDate);
+      if (!paint) return;
+
+      state.activePaintId = paint.id;
+      state.isEraserMode = false;
+      state.editingPaintId = paint.id;
+      state.newPaintIsFavorite = !!paint.isFavorite;
+      state.newPaintBorderType = paint.borderType === 'black' ? 'black' : 'gold';
+
+      renderCircularPalette();
+
+      const titleEl = document.getElementById('mixer-mode-title');
+      const submitBtn = document.getElementById('btn-mixer-submit');
+      const deleteBtn = document.getElementById('btn-mixer-delete');
+      const nameInput = document.getElementById('new-paint-name');
+      const colorInput = document.getElementById('new-paint-color');
+
+      if (titleEl) titleEl.textContent = '✎ 물감 수정';
+      if (submitBtn) submitBtn.textContent = '수정 내용 저장';
+      if (deleteBtn) deleteBtn.classList.remove('hidden');
+      if (nameInput) nameInput.value = paint.name;
+      if (colorInput) colorInput.value = paint.color;
+
+      syncNewPaintFavoriteButtonUI();
+      setNewPaintBorderType(state.newPaintBorderType);
+
+      document.getElementById('palette-center-default').classList.add('hidden');
+      document.getElementById('palette-center-mixer').classList.remove('hidden');
+      if (nameInput) {
+        nameInput.focus();
+        nameInput.setSelectionRange(nameInput.value.length, nameInput.value.length);
+      }
+    }
+
+    function openEditActivePaintMixer() {
+      if (state.activePaintId) {
+        openEditPaintMixerById(state.activePaintId);
+      }
     }
 
     function closeNewPaintMixer() {
+      state.editingPaintId = null;
       document.getElementById('palette-center-mixer').classList.add('hidden');
       document.getElementById('palette-center-default').classList.remove('hidden');
     }
@@ -1536,20 +1637,13 @@
       const wrap = document.getElementById('all-color-swatches');
       if (!wrap) return;
       wrap.innerHTML = ARTIST_COLOR_SWATCHES.map(c =>
-        `<button type="button" onclick="document.getElementById('new-paint-color').value='${c}'" class="w-4 h-4 rounded-full border border-black/20 hover:scale-125 transition" style="background:${c};"></button>`
+        `<button type="button" onclick="document.getElementById('new-paint-color').value='${c}'" class="w-4 h-4 rounded-full border border-black/20 hover:scale-125 transition cursor-pointer" style="background:${c};"></button>`
       ).join('');
     }
 
     function toggleNewPaintFavorite() {
       state.newPaintIsFavorite = !state.newPaintIsFavorite;
-      const btn = document.getElementById('new-paint-fav-btn');
-      if (state.newPaintIsFavorite) {
-        btn.textContent = '★';
-        btn.className = 'w-7 h-7 rounded-xl border border-amber-300 bg-amber-50 text-amber-500 font-bold text-sm flex items-center justify-center shrink-0';
-      } else {
-        btn.textContent = '☆';
-        btn.className = 'w-7 h-7 rounded-xl border border-stone-300 bg-white text-stone-400 font-bold text-sm flex items-center justify-center shrink-0';
-      }
+      syncNewPaintFavoriteButtonUI();
     }
 
     function setNewPaintBorderType(borderType) {
@@ -1557,15 +1651,16 @@
       const goldBtn = document.getElementById('btn-new-border-gold');
       const blackBtn = document.getElementById('btn-new-border-black');
       if (borderType === 'gold') {
-        goldBtn.className = 'py-1 px-1.5 rounded-lg font-bold border-2 border-amber-400 bg-amber-50 text-amber-950 text-center';
-        blackBtn.className = 'py-1 px-1.5 rounded-lg font-semibold border border-stone-300 bg-white text-stone-600 text-center';
+        goldBtn.className = 'py-1 px-1.5 rounded-lg font-bold border-2 border-amber-400 bg-amber-50 text-amber-950 text-center cursor-pointer';
+        blackBtn.className = 'py-1 px-1.5 rounded-lg font-semibold border border-stone-300 bg-white text-stone-600 text-center cursor-pointer';
       } else {
-        blackBtn.className = 'py-1 px-1.5 rounded-lg font-bold border-2 border-stone-900 bg-stone-900 text-white text-center';
-        goldBtn.className = 'py-1 px-1.5 rounded-lg font-semibold border border-stone-300 bg-white text-stone-600 text-center';
+        blackBtn.className = 'py-1 px-1.5 rounded-lg font-bold border-2 border-stone-900 bg-stone-900 text-white text-center cursor-pointer';
+        goldBtn.className = 'py-1 px-1.5 rounded-lg font-semibold border border-stone-300 bg-white text-stone-600 text-center cursor-pointer';
       }
     }
 
-    function addCustomPaint() {
+    // 새 물감 추가 또는 기존 물감 수정 저장 통합 함수
+    function savePaintFromMixer() {
       const nameInput = document.getElementById('new-paint-name');
       const colorInput = document.getElementById('new-paint-color');
       const name = nameInput.value.trim();
@@ -1576,10 +1671,87 @@
         return;
       }
 
+      const newColor = colorInput.value;
+
+      // 1) 기존 물감 수정 모드인 경우
+      if (state.editingPaintId) {
+        const targetId = state.editingPaintId;
+        const paint = getPaintById(targetId, state.selectedDate);
+        if (!paint) {
+          closeNewPaintMixer();
+          return;
+        }
+
+        const oldColor = paint.color;
+        paint.name = name;
+        paint.color = newColor;
+        paint.borderType = state.newPaintBorderType;
+
+        // 상시 루틴(★) <-> 당일 물감(☆) 위치 변경 처리
+        const inFixedIdx = state.fixedPaints.findIndex(p => p.id === targetId);
+        if (state.newPaintIsFavorite && inFixedIdx === -1) {
+          // 당일 물감 -> 상시 루틴으로 승격
+          for (const d in state.dailyPaintsByDate) {
+            const idx = (state.dailyPaintsByDate[d] || []).findIndex(p => p.id === targetId);
+            if (idx !== -1) state.dailyPaintsByDate[d].splice(idx, 1);
+          }
+          paint.isFavorite = true;
+          paint.isFixed = true;
+          state.fixedPaints.push(paint);
+        } else if (!state.newPaintIsFavorite && inFixedIdx !== -1) {
+          // 상시 루틴 -> 당일 물감으로 전환
+          state.fixedPaints.splice(inFixedIdx, 1);
+          paint.isFavorite = false;
+          paint.isFixed = false;
+          if (!state.dailyPaintsByDate[state.selectedDate]) {
+            state.dailyPaintsByDate[state.selectedDate] = [];
+          }
+          state.dailyPaintsByDate[state.selectedDate].push(paint);
+        } else {
+          paint.isFavorite = state.newPaintIsFavorite;
+          paint.isFixed = state.newPaintIsFavorite;
+        }
+
+        // 물감 색상이 변경된 경우: 원형 도화지 및 그리드 브러시 궤적의 색상도 함께 업데이트
+        if (oldColor !== newColor) {
+          for (const d in state.circleStrokesByDate) {
+            (state.circleStrokesByDate[d] || []).forEach(s => {
+              if (s.paintId === targetId || (!s.paintId && s.color === oldColor)) {
+                s.color = newColor;
+              }
+            });
+          }
+          for (const d in state.dayGridStrokesByDate) {
+            (state.dayGridStrokesByDate[d] || []).forEach(s => {
+              if (s.color === oldColor) {
+                s.color = newColor;
+              }
+            });
+          }
+        }
+
+        state.activePaintId = targetId;
+        state.isEraserMode = false;
+        closeNewPaintMixer();
+        saveState();
+        renderCircularPalette();
+        renderDailyGrid();
+        replayCircularStrokes();
+        if (state.currentView === 'month') renderMonthView();
+        if (state.currentView === 'year') renderYearView();
+        if (state.currentView === 'life') {
+          buildLifeNetworkGeometry();
+          drawLifeNetworkFrame();
+        }
+        showToast(`✎ [${name}] 물감 정보가 수정되었습니다.`, 'emerald');
+        return;
+      }
+
+      // 2) 새 물감 추가 모드인 경우
       const newPaint = {
         id: 'paint_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
         name,
-        color: colorInput.value,
+        color: newColor,
         borderType: state.newPaintBorderType, // 'gold' | 'black'
         isFavorite: state.newPaintIsFavorite,
         isFixed: state.newPaintIsFavorite
@@ -1604,15 +1776,84 @@
       renderCircularPalette();
     }
 
-    function deleteDailyPaint(paintId) {
-      const list = state.dailyPaintsByDate[state.selectedDate] || [];
-      state.dailyPaintsByDate[state.selectedDate] = list.filter(p => p.id !== paintId);
-      if (state.activePaintId === paintId) {
-        state.activePaintId = state.fixedPaints[0].id;
+    function addCustomPaint() {
+      savePaintFromMixer();
+    }
+
+    // 상시 루틴 물감 & 당일 물감 통합 삭제 함수
+    function deletePaintById(paintId) {
+      const allAvailable = getAllPaintsForDate(state.selectedDate);
+      if (allAvailable.length <= 1) {
+        showToast('팔레트에 최소 1개의 물감은 남아있어야 합니다.', 'amber');
+        return;
       }
+
+      const targetPaint = getPaintById(paintId, state.selectedDate);
+      const targetName = targetPaint ? targetPaint.name : '물감';
+
+      // 1) 상시 루틴 목록에서 제거
+      state.fixedPaints = state.fixedPaints.filter(p => p.id !== paintId);
+
+      // 2) 날짜별 당일 물감 목록에서 제거
+      for (const d in state.dailyPaintsByDate) {
+        state.dailyPaintsByDate[d] = (state.dailyPaintsByDate[d] || []).filter(p => p.id !== paintId);
+      }
+
+      // 3) 그리드에 해당 물감으로 칠해져 있던 슬롯 및 메모 정리
+      for (const d in state.dayGrids) {
+        const grid = state.dayGrids[d];
+        if (!Array.isArray(grid)) continue;
+        for (let i = 0; i < grid.length; i++) {
+          if (grid[i] === paintId) {
+            grid[i] = null;
+            if (state.dayGridNotes && state.dayGridNotes[d]) {
+              delete state.dayGridNotes[d][i];
+            }
+          }
+        }
+      }
+
+      // 4) 원형 도화지에서 해당 물감 스트로크 정리
+      for (const d in state.circleStrokesByDate) {
+        state.circleStrokesByDate[d] = (state.circleStrokesByDate[d] || []).filter(s => s.paintId !== paintId);
+      }
+
+      // 5) 만약 현재 수정 중이거나 선택된 물감이었다면 초기화 및 다음 물감 선택
+      if (state.editingPaintId === paintId) {
+        closeNewPaintMixer();
+      }
+      const remaining = getAllPaintsForDate(state.selectedDate);
+      if (state.activePaintId === paintId && remaining.length > 0) {
+        state.activePaintId = remaining[0].id;
+      }
+
       saveState();
       renderCircularPalette();
       renderDailyGrid();
+      replayCircularStrokes();
+      if (state.currentView === 'month') renderMonthView();
+      if (state.currentView === 'year') renderYearView();
+      if (state.currentView === 'life') {
+        buildLifeNetworkGeometry();
+        drawLifeNetworkFrame();
+      }
+      showToast(`🗑️ [${targetName}] 물감을 삭제했습니다.`, 'stone');
+    }
+
+    function deleteDailyPaint(paintId) {
+      deletePaintById(paintId);
+    }
+
+    function deleteActivePaint() {
+      if (state.activePaintId) {
+        deletePaintById(state.activePaintId);
+      }
+    }
+
+    function deleteEditingPaintFromMixer() {
+      if (state.editingPaintId) {
+        deletePaintById(state.editingPaintId);
+      }
     }
 
     // 붓 반경 동기화 (팔레트 중앙 슬라이더 <-> 하단 독 슬라이더)
