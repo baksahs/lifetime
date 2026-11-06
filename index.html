@@ -161,11 +161,10 @@
 
       <!-- 좌측: 브랜드 타이틀 + 미니멀 날짜 네비게이터 + 시각 설정 팝오버 -->
       <div class="flex items-center gap-2.5 sm:gap-4">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center">
           <div class="w-8 h-8 rounded-full bg-stone-900 text-amber-300 flex items-center justify-center shadow-sm border border-amber-400/50">
             <span class="text-sm">🎨</span>
           </div>
-          <h1 class="serif-title text-base sm:text-lg font-bold tracking-tight text-stone-900">시간의 도화지</h1>
         </div>
 
         <!-- 날짜 이동 컨트롤 -->
@@ -274,9 +273,7 @@
           <span id="sync-status-text" class="hidden xl:inline text-[11px]">동기화</span>
         </button>
 
-        <button onclick="generateRichDemoData()" class="px-2.5 py-1 rounded-full bg-amber-100/90 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold transition shadow-2xs" title="과거 날짜들에 샘플 물감 기억 채우기">
-          ✨ <span class="hidden md:inline">샘플</span>
-        </button>
+
 
         <button onclick="openPythonModal()" class="px-2.5 py-1 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-100 text-xs font-bold transition shadow-2xs" title="Python Flask + SQLite 서버 코드 보기">
           🐍
@@ -345,11 +342,17 @@
             <span class="text-[10px] font-bold uppercase tracking-wider text-stone-400">Sheet 02 · 10-Min Grid (6×24)</span>
             <h2 class="serif-title text-lg font-bold text-stone-900">하루 시간 그리드 도화지</h2>
           </div>
-          <div class="flex items-center gap-1.5">
-            <button onclick="fillSampleDayRoutine()" class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300/80 transition">
-              🪄 자동 채색
-            </button>
-            <button onclick="clearDayGrid()" class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-stone-100 hover:bg-rose-50 hover:text-rose-700 text-stone-500 border border-stone-200 transition">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <!-- 색칠 모드 / 세부사항 적기 모드 전환 스위치 -->
+            <div class="flex items-center bg-stone-200/75 p-0.5 rounded-full border border-stone-300/80 text-[11px]">
+              <button onclick="setGridInteractionMode('paint')" id="btn-grid-mode-paint" class="px-2.5 py-1 rounded-full font-bold bg-stone-900 text-amber-300 shadow-2xs transition cursor-pointer">
+                🖌️ 색칠하기
+              </button>
+              <button onclick="setGridInteractionMode('note')" id="btn-grid-mode-note" class="px-2.5 py-1 rounded-full font-semibold text-stone-600 hover:text-stone-900 transition cursor-pointer" title="색칠된 칸을 클릭해 세부사항을 적습니다 (색칠 모드에서도 우클릭/더블클릭으로 바로 입력 가능)">
+                📝 세부사항 적기
+              </button>
+            </div>
+            <button onclick="clearDayGrid()" class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-stone-100 hover:bg-rose-50 hover:text-rose-700 text-stone-500 border border-stone-200 transition cursor-pointer">
               비우기
             </button>
           </div>
@@ -363,14 +366,73 @@
             <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs future-green-cell inline-block"></span>미래(초록)</span>
             <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs transparent-cell-pattern inline-block"></span>빈과거(투명)</span>
           </div>
-          <span class="font-mono text-[10px] text-stone-400">1칸 = 10분</span>
+          <span id="grid-mode-hint-label" class="font-mono text-[10px] text-stone-400">1칸=10분 · 우클릭/더블클릭 시 메모</span>
         </div>
 
-        <!-- 6칸 × 24줄 캔버스 그리드 -->
+        <!-- 6칸 × 24줄 캔버스 그리드 + 세부사항 입력 팝오버 -->
         <div class="w-full flex justify-center">
           <div class="w-full max-w-[450px] relative canvas-touch-lock select-none">
             <canvas id="daily-grid-canvas" width="460" height="710" class="w-full h-auto block rounded-2xl cursor-crosshair border border-stone-200/80"></canvas>
+
+            <!-- 그리드 셀 호버 툴팁 (시간, 물감 이름, 적혀있는 세부사항 표시) -->
+            <div id="daily-grid-tooltip" class="hidden fixed z-50 pointer-events-none bg-stone-950/95 text-stone-100 px-3 py-2 rounded-xl border border-amber-400/50 shadow-xl text-xs space-y-1 max-w-[260px]"></div>
+
+            <!-- 그리드 위에서 클릭/우클릭 시 열리는 세부사항 입력 팝오버 -->
+            <div id="grid-note-popover" onclick="event.stopPropagation()" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-40 w-[92%] max-w-[360px] bg-[#fcfaf5] rounded-2xl p-4 border-2 border-stone-800 shadow-2xl space-y-3 text-xs">
+              <div class="flex items-center justify-between border-b border-stone-200 pb-2">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span id="note-popover-swatch" class="w-4 h-4 rounded-full shrink-0 border-gold-ring"></span>
+                  <span id="note-popover-paint-name" class="font-extrabold text-stone-900 truncate">깊은 몰입</span>
+                </div>
+                <button onclick="closeGridNotePopover()" class="w-6 h-6 rounded-full bg-stone-200/80 hover:bg-stone-300 text-stone-700 font-bold text-xs flex items-center justify-center cursor-pointer">✕</button>
+              </div>
+
+              <!-- 적용 범위 선택 (연속된 같은 색 구간 전체 vs 선택한 10분 칸만) -->
+              <div class="space-y-1">
+                <label class="text-[10px] font-bold text-stone-500">적용할 시간 범위</label>
+                <div class="grid grid-cols-2 gap-1.5">
+                  <button type="button" onclick="setNotePopoverScope('block')" id="btn-note-scope-block" class="py-1.5 px-2 rounded-xl font-bold border-2 border-stone-900 bg-stone-900 text-amber-300 text-[11px] text-center transition cursor-pointer">
+                    연속 구간 (<span id="note-scope-block-label">09:00~10:00</span>)
+                  </button>
+                  <button type="button" onclick="setNotePopoverScope('single')" id="btn-note-scope-single" class="py-1.5 px-2 rounded-xl font-semibold border border-stone-300 bg-white text-stone-600 text-[11px] text-center transition cursor-pointer">
+                    이 칸만 (<span id="note-scope-single-label">09:00~09:10</span>)
+                  </button>
+                </div>
+              </div>
+
+              <!-- 세부사항 텍스트 입력 -->
+              <div class="space-y-1">
+                <label for="grid-note-textarea" class="text-[10px] font-bold text-stone-500">📝 세부사항 내용</label>
+                <textarea id="grid-note-textarea" rows="3" placeholder="이 시간에 한 구체적인 내용이나 메모를 적어보세요..." class="w-full p-2.5 rounded-xl bg-white border border-stone-300 text-xs text-stone-900 focus:outline-none focus:ring-2 focus:ring-amber-500 leading-relaxed resize-none"></textarea>
+              </div>
+
+              <div class="flex items-center justify-between gap-2 pt-1">
+                <button type="button" onclick="deleteGridNoteFromPopover()" class="px-3 py-1.5 rounded-xl bg-stone-200 hover:bg-rose-100 hover:text-rose-700 text-stone-600 font-bold text-[11px] transition cursor-pointer">
+                  메모 지우기
+                </button>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" onclick="closeGridNotePopover()" class="px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-600 font-semibold text-[11px] transition cursor-pointer">
+                    취소
+                  </button>
+                  <button type="button" onclick="saveGridNoteFromPopover()" class="px-4 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-amber-300 font-bold text-[11px] shadow-xs transition cursor-pointer">
+                    저장하기
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
+        </div>
+
+        <!-- 하단: 색칠된 시간대별 세부사항 실시간 기록 목록 -->
+        <div id="daily-grid-notes-panel" class="w-full bg-stone-100/70 rounded-2xl p-3.5 border border-stone-200/80 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-extrabold text-stone-800">📝 색칠한 시간대별 세부사항</span>
+              <span class="text-[10px] text-stone-400 font-medium">(색칠 후 바로 입력하거나 그리드 칸 클릭)</span>
+            </div>
+            <span id="daily-notes-summary-badge" class="font-mono text-[11px] font-bold text-stone-500">0개 구간</span>
+          </div>
+          <div id="daily-grid-notes-list" class="space-y-1.5 max-h-[260px] overflow-y-auto pr-0.5"></div>
         </div>
       </div>
 
@@ -454,24 +516,29 @@
               <option value="harmonic">🌊 심박 6박자 공명</option>
               <option value="calm_heart">💓 현재 분기만 온기</option>
             </select>
-            <button onclick="triggerManualPulseWave()" class="px-2.5 py-1 rounded-lg bg-stone-900 text-amber-300 font-bold text-xs">✨ 숨결 파동</button>
-            <button onclick="simulateLifeMemories()" class="px-2.5 py-1 rounded-lg bg-amber-500 text-stone-950 font-bold text-xs">🌟 생애 샘플</button>
+            <button onclick="togglePulseWave()" id="btn-pulse-wave" class="px-2.5 py-1 rounded-lg bg-white hover:bg-stone-200 text-stone-700 border border-stone-300 font-bold text-xs transition cursor-pointer">✨ 숨결 파동</button>
+            <button onclick="toggleGoldenShine()" id="btn-golden-shine" class="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100 text-stone-800 border border-amber-300 font-bold text-xs transition cursor-pointer">🌟 빛나기</button>
           </div>
         </div>
 
         <div id="life-stats-bar" class="grid grid-cols-2 sm:grid-cols-4 gap-3"></div>
 
         <div class="relative rounded-3xl overflow-hidden border border-stone-800 bg-[#12100e] shadow-xl">
-          <div class="absolute top-3 left-3 right-3 z-10 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-            <div class="bg-stone-900/85 backdrop-blur-md text-stone-200 px-3 py-1.5 rounded-full border border-stone-700 text-[11px] flex flex-wrap items-center gap-3">
-              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#ffd700] inline-block"></span>황금 기억(3개월 평균)</span>
-              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#1c1917] border border-stone-500 inline-block"></span>검은 기억</span>
-              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs border border-dashed border-stone-400 inline-block"></span>투명 과거</span>
-              <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#22c55e] inline-block"></span>미래(초록)</span>
+          <div class="absolute top-3 left-3 right-3 z-10 flex items-start justify-between gap-2 pointer-events-none">
+            <div id="life-overlay-badges" class="flex-1 flex flex-wrap items-center justify-between gap-2 pr-2">
+              <div class="bg-stone-900/85 backdrop-blur-md text-stone-200 px-3 py-1.5 rounded-full border border-stone-700 text-[11px] flex flex-wrap items-center gap-3">
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#ffd700] inline-block"></span>황금 기억(3개월 평균)</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#1c1917] border border-stone-500 inline-block"></span>검은 기억</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs border border-dashed border-stone-400 inline-block"></span>투명 과거</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-xs bg-[#22c55e] inline-block"></span>미래(초록)</span>
+              </div>
+              <div id="life-rhythm-caption" class="bg-stone-900/85 backdrop-blur-md text-amber-200/90 px-3 py-1 rounded-full border border-stone-700 text-[11px] font-mono">
+                🌬️ 들숨과 날숨(5.5초 주기)을 따라 잔디 뿌리의 온기가 줄기와 수관으로 스며듭니다
+              </div>
             </div>
-            <div id="life-rhythm-caption" class="bg-stone-900/85 backdrop-blur-md text-amber-200/90 px-3 py-1 rounded-full border border-stone-700 text-[11px] font-mono">
-              🌬️ 들숨과 날숨을 따라 뿌리의 온기가 줄기로 스며듭니다
-            </div>
+            <button onclick="toggleLifeOverlays()" id="btn-canvas-life-overlay" class="pointer-events-auto shrink-0 bg-stone-900/85 hover:bg-stone-800 text-stone-300 hover:text-white px-2.5 py-1 rounded-full border border-stone-700 text-[11px] font-bold transition shadow-md cursor-pointer" title="상단 범례 및 안내 문구 숨기기/표시">
+              👁️ 숨기기
+            </button>
           </div>
 
           <canvas id="life-network-canvas" width="1150" height="760" class="w-full h-[540px] sm:h-[680px] block cursor-pointer"></canvas>
@@ -483,15 +550,14 @@
   </main>
 
   <!-- =========================================================================
-       하단 미니멀 아틀리에 플로팅 독 (On-Demand Palette Trigger & Quick Brush Bar)
+       하단 미니멀 아틀리에 플로팅 독 (전체 숨김/표시 지원)
        ========================================================================= -->
-  <div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[96vw]">
+  <div id="bottom-floating-dock" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[96vw] transition-all duration-200">
     <div class="bg-stone-900/95 backdrop-blur-md text-stone-100 px-3 sm:px-4 py-2 rounded-full border border-stone-700 shadow-2xl flex items-center gap-2 sm:gap-3.5">
 
-      <!-- 화가의 원형 팔레트 꺼내기 / 닫기 메인 버튼 -->
-      <button onclick="toggleArtistPalette()" id="btn-toggle-palette" class="px-3.5 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-extrabold text-xs sm:text-sm flex items-center gap-2 shadow-md transition cursor-pointer">
+      <!-- 원형 팔레트 꺼내기 / 닫기 메인 버튼 ('화가의 팔레트' 문구 제거) -->
+      <button onclick="toggleArtistPalette()" id="btn-toggle-palette" class="px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-950 font-extrabold text-xs sm:text-sm flex items-center gap-1.5 shadow-md transition cursor-pointer" title="팔레트 열기/닫기 (단축키 P)">
         <span class="text-base">🎨</span>
-        <span>화가의 팔레트</span>
         <kbd class="hidden sm:inline-block text-[10px] bg-stone-900/20 px-1.5 py-0.5 rounded-full font-mono">P</kbd>
       </button>
 
@@ -520,8 +586,20 @@
         <span id="dock-brush-label" class="font-mono text-[11px] text-amber-300 w-9">1.38×</span>
       </div>
 
+      <!-- 하단 도구 모음 전체 숨기기 버튼 -->
+      <button onclick="toggleBottomDock(false)" class="px-2.5 py-1.5 rounded-full text-xs font-bold border border-stone-700 bg-stone-800/90 hover:bg-stone-700 text-stone-300 hover:text-white transition flex items-center gap-1 cursor-pointer" title="하단 바 전체 숨기기">
+        <span>▾</span>
+        <span class="hidden sm:inline text-[11px]">숨기기</span>
+      </button>
+
     </div>
   </div>
+
+  <!-- 하단 바가 숨겨졌을 때 다시 꺼낼 수 있는 미니 복원 버튼 -->
+  <button id="btn-restore-bottom-dock" onclick="toggleBottomDock(true)" class="hidden fixed bottom-3 right-4 z-40 bg-stone-900/85 hover:bg-stone-900 text-amber-300 px-3 py-1.5 rounded-full border border-stone-700 shadow-lg text-xs font-bold flex items-center gap-1.5 transition cursor-pointer" title="하단 도구 바 다시 표시">
+    <span>🎨</span>
+    <span>▴ 도구 펼치기</span>
+  </button>
 
   <!-- =========================================================================
        온디맨드 진짜 원형의 화가의 팔레트 (True Circular Painter's Palette)
@@ -806,8 +884,12 @@
       newPaintBorderType: 'gold', // 'gold' | 'black'
       newPaintIsFavorite: true,   // true(★ 루틴) | false(☆ 당일)
 
-      // 원형 팔레트 온디맨드 상태
+      // 원형 팔레트 & 하단 독 온디맨드 상태
       isPaletteOpen: false,
+      isBottomDockVisible: true,
+      showLifeOverlays: true,
+      isGoldenShineActive: false,
+      isPulseWaveActive: false,
       pinPalette: true, // true면 물감 선택 후에도 팔레트 유지, false면 물감 선택 즉시 닫힘
       paletteOffset: { x: 0, y: 0 },
 
@@ -819,7 +901,9 @@
       simCurrentSlot: 84,
       lifeRhythmMode: 'breath',
 
+      gridInteractionMode: 'paint', // 'paint' | 'note'
       dayGrids: {},
+      dayGridNotes: {},
       dayGridStrokesByDate: {},
       circleStrokesByDate: {},
       simulatedQuarterMemory: {},
@@ -832,6 +916,8 @@
     let isGridPainting = false;
     let lastGridPt = null;
     let hoverGridPt = null;
+    let hoveredGridCell = null;
+    let activeNotePopoverContext = null;
     let gridCellRects = [];
     let gridTrailOffscreen = null;
 
@@ -888,6 +974,7 @@
         fixedPaints: state.fixedPaints,
         dailyPaintsByDate: state.dailyPaintsByDate,
         dayGrids: state.dayGrids,
+        dayGridNotes: state.dayGridNotes,
         dayGridStrokesByDate: state.dayGridStrokesByDate,
         circleStrokesByDate: state.circleStrokesByDate,
         birthDate: state.birthDate,
@@ -912,6 +999,7 @@
           state.dailyPaintsByDate = normDaily;
         }
         if (parsed.dayGrids) state.dayGrids = parsed.dayGrids;
+        if (parsed.dayGridNotes) state.dayGridNotes = parsed.dayGridNotes;
         if (parsed.dayGridStrokesByDate) state.dayGridStrokesByDate = parsed.dayGridStrokesByDate;
         if (parsed.circleStrokesByDate) state.circleStrokesByDate = parsed.circleStrokesByDate;
         if (parsed.birthDate) state.birthDate = parsed.birthDate;
@@ -975,6 +1063,7 @@
           state.dailyPaintsByDate = normDaily;
         }
         if (parsed.dayGrids) state.dayGrids = parsed.dayGrids;
+        if (parsed.dayGridNotes) state.dayGridNotes = parsed.dayGridNotes;
         if (parsed.dayGridStrokesByDate) state.dayGridStrokesByDate = parsed.dayGridStrokesByDate;
         if (parsed.circleStrokesByDate) state.circleStrokesByDate = parsed.circleStrokesByDate;
         if (parsed.birthDate) state.birthDate = parsed.birthDate;
@@ -1154,6 +1243,20 @@
     function closeArtistPalette() {
       state.isPaletteOpen = false;
       document.getElementById('palette-backdrop').classList.add('hidden');
+    }
+
+    function toggleBottomDock(show) {
+      state.isBottomDockVisible = typeof show === 'boolean' ? show : !state.isBottomDockVisible;
+      const dockEl = document.getElementById('bottom-floating-dock');
+      const restoreBtn = document.getElementById('btn-restore-bottom-dock');
+      if (state.isBottomDockVisible) {
+        if (dockEl) dockEl.classList.remove('hidden');
+        if (restoreBtn) restoreBtn.classList.add('hidden');
+      } else {
+        if (dockEl) dockEl.classList.add('hidden');
+        if (restoreBtn) restoreBtn.classList.remove('hidden');
+        closeArtistPalette();
+      }
     }
 
     function onPaletteBackdropClick(e) {
@@ -1776,7 +1879,7 @@
         total++;
       }
       if (total === 0) {
-        showToast('먼저 우측 시간 그리드에 물감을 칠하거나 [자동 채색]을 눌러보세요!', 'amber');
+        showToast('먼저 우측 시간 그리드에 물감을 칠해주세요!', 'amber');
         return;
       }
 
@@ -1906,13 +2009,386 @@
     }
 
     /***************************************************************************
-     * 7. [일 단위 - 2] 하루 10분 그리드 (가로 6칸 × 세로 24줄 = 144칸)
+     * 7. [일 단위 - 2] 하루 10분 그리드 (가로 6칸 × 세로 24줄 = 144칸) & 세부사항(메모) 기능
      *    - 물감 색상 채우기 + 황금색 테두리(긍정) / 검은색 테두리(부정) 명확히 렌더링
+     *    - 색칠한 후 시간대별/칸별 세부사항(메모) 기록 및 캔버스·하단 목록 연동
      ***************************************************************************/
     function toggleFutureLock(checked) {
       state.lockFutureTime = checked;
       drawDailyGridCanvasFrame();
       updateDailyMemoryGemUI();
+      renderDailyGridNotesList();
+    }
+
+    function formatSlotTimeLabel(slotIdx) {
+      const totalMins = slotIdx * 10;
+      const hh = String(Math.floor(totalMins / 60)).padStart(2, '0');
+      const mm = String(totalMins % 60).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+
+    function formatSlotRangeLabel(startSlot, endSlotInclusive) {
+      return `${formatSlotTimeLabel(startSlot)}~${formatSlotTimeLabel(endSlotInclusive + 1)}`;
+    }
+
+    function getNoteForSlot(dateStr, slotIdx) {
+      if (!state.dayGridNotes || !state.dayGridNotes[dateStr]) return '';
+      return state.dayGridNotes[dateStr][slotIdx] || '';
+    }
+
+    function setNoteForSlotRange(dateStr, startSlot, endSlotInclusive, noteText) {
+      if (!state.dayGridNotes) state.dayGridNotes = {};
+      if (!state.dayGridNotes[dateStr]) state.dayGridNotes[dateStr] = {};
+      const cleaned = (noteText || '').trim();
+      for (let s = startSlot; s <= endSlotInclusive; s++) {
+        if (cleaned) {
+          state.dayGridNotes[dateStr][s] = cleaned;
+        } else {
+          delete state.dayGridNotes[dateStr][s];
+        }
+      }
+    }
+
+    // 클릭한 슬롯과 같은 물감으로 연속해서 칠해진 구간(startSlot ~ endSlot) 탐색
+    function findContiguousSamePaintRange(dateStr, slotIdx) {
+      const grid = state.dayGrids[dateStr] || [];
+      const pid = grid[slotIdx];
+      if (!pid) return { startSlot: slotIdx, endSlot: slotIdx, paintId: null };
+      let start = slotIdx;
+      let end = slotIdx;
+      while (start > 0 && grid[start - 1] === pid) {
+        start--;
+      }
+      while (end < 143 && grid[end + 1] === pid) {
+        end++;
+      }
+      return { startSlot: start, endSlot: end, paintId: pid };
+    }
+
+    // 하루 144칸 중 색칠된 칸들을 (물감 + 메모) 기준 연속 구간 목록으로 추출
+    function extractDailyColoredBlocks(dateStr = state.selectedDate) {
+      const grid = state.dayGrids[dateStr] || [];
+      const blocks = [];
+      let i = 0;
+      while (i < 144) {
+        const status = getTimeSlotStatus(dateStr, i);
+        const pid = grid[i];
+        if (!pid || (status === 'future' && state.lockFutureTime)) {
+          i++;
+          continue;
+        }
+        const paint = getPaintById(pid, dateStr);
+        if (!paint) {
+          i++;
+          continue;
+        }
+        const note = getNoteForSlot(dateStr, i);
+        let end = i;
+        while (end + 1 < 144) {
+          const nextStatus = getTimeSlotStatus(dateStr, end + 1);
+          if (nextStatus === 'future' && state.lockFutureTime) break;
+          if (grid[end + 1] === pid && getNoteForSlot(dateStr, end + 1) === note) {
+            end++;
+          } else {
+            break;
+          }
+        }
+        const prevBlock = blocks.length > 0 ? blocks[blocks.length - 1] : null;
+        const canMergePrev = !!(prevBlock && prevBlock.paintId === pid && prevBlock.endSlot === i - 1);
+        blocks.push({
+          startSlot: i,
+          endSlot: end,
+          slotCount: end - i + 1,
+          durationMins: (end - i + 1) * 10,
+          timeRangeStr: formatSlotRangeLabel(i, end),
+          paintId: pid,
+          paint,
+          note,
+          canMergePrev
+        });
+        i = end + 1;
+      }
+      return blocks;
+    }
+
+    function setGridInteractionMode(mode) {
+      state.gridInteractionMode = mode === 'note' ? 'note' : 'paint';
+      const paintBtn = document.getElementById('btn-grid-mode-paint');
+      const noteBtn = document.getElementById('btn-grid-mode-note');
+      const hintEl = document.getElementById('grid-mode-hint-label');
+      const canvas = document.getElementById('daily-grid-canvas');
+
+      if (state.gridInteractionMode === 'note') {
+        if (paintBtn) paintBtn.className = 'px-2.5 py-1 rounded-full font-semibold text-stone-600 hover:text-stone-900 transition cursor-pointer';
+        if (noteBtn) noteBtn.className = 'px-2.5 py-1 rounded-full font-bold bg-stone-900 text-amber-300 shadow-2xs transition cursor-pointer';
+        if (hintEl) {
+          hintEl.textContent = '색칠된 칸을 클릭해 세부사항 입력';
+          hintEl.className = 'font-mono text-[10px] text-amber-700 font-bold';
+        }
+        if (canvas) {
+          canvas.classList.remove('cursor-crosshair');
+          canvas.classList.add('cursor-pointer');
+        }
+      } else {
+        if (paintBtn) paintBtn.className = 'px-2.5 py-1 rounded-full font-bold bg-stone-900 text-amber-300 shadow-2xs transition cursor-pointer';
+        if (noteBtn) noteBtn.className = 'px-2.5 py-1 rounded-full font-semibold text-stone-600 hover:text-stone-900 transition cursor-pointer';
+        if (hintEl) {
+          hintEl.textContent = '1칸=10분 · 우클릭/더블클릭 시 메모';
+          hintEl.className = 'font-mono text-[10px] text-stone-400';
+        }
+        if (canvas) {
+          canvas.classList.remove('cursor-pointer');
+          canvas.classList.add('cursor-crosshair');
+        }
+        closeGridNotePopover();
+      }
+      drawDailyGridCanvasFrame();
+    }
+
+    function findGridCellAtPoint(x, y) {
+      for (const cell of gridCellRects) {
+        if (x >= cell.x - 4 && x <= cell.x + cell.w + 4 && y >= cell.y - 3 && y <= cell.y + cell.h + 3) {
+          return cell;
+        }
+      }
+      return null;
+    }
+
+    function openGridNotePopover(slotIdx, customStartSlot, customEndSlot) {
+      const grid = state.dayGrids[state.selectedDate] || [];
+      const pid = grid[slotIdx];
+      const paint = getPaintById(pid, state.selectedDate);
+      if (!paint) {
+        showToast('먼저 그리드 칸에 물감을 색칠한 뒤 세부사항을 적어주세요!', 'amber');
+        return;
+      }
+
+      const range = (customStartSlot !== undefined && customEndSlot !== undefined)
+        ? { startSlot: customStartSlot, endSlot: customEndSlot, paintId: pid }
+        : findContiguousSamePaintRange(state.selectedDate, slotIdx);
+
+      const existingNote = getNoteForSlot(state.selectedDate, slotIdx);
+
+      activeNotePopoverContext = {
+        slotIdx,
+        blockStart: range.startSlot,
+        blockEnd: range.endSlot,
+        paintId: pid,
+        scope: 'block'
+      };
+
+      const swatch = document.getElementById('note-popover-swatch');
+      const nameEl = document.getElementById('note-popover-paint-name');
+      const blockLabel = document.getElementById('note-scope-block-label');
+      const singleLabel = document.getElementById('note-scope-single-label');
+      const textarea = document.getElementById('grid-note-textarea');
+      const popover = document.getElementById('grid-note-popover');
+
+      if (swatch) {
+        swatch.style.background = paint.color;
+        swatch.className = `w-4 h-4 rounded-full shrink-0 ${paint.borderType === 'black' ? 'border-black-ring' : 'border-gold-ring'}`;
+      }
+      if (nameEl) nameEl.textContent = paint.name;
+      if (blockLabel) blockLabel.textContent = formatSlotRangeLabel(range.startSlot, range.endSlot);
+      if (singleLabel) singleLabel.textContent = formatSlotRangeLabel(slotIdx, slotIdx);
+      if (textarea) textarea.value = existingNote;
+
+      setNotePopoverScope('block');
+      if (popover) popover.classList.remove('hidden');
+      hideDailyGridTooltip();
+      drawDailyGridCanvasFrame();
+
+      setTimeout(() => {
+        if (textarea) {
+          textarea.focus();
+          textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+        }
+      }, 30);
+    }
+
+    function setNotePopoverScope(scope) {
+      if (!activeNotePopoverContext) return;
+      activeNotePopoverContext.scope = scope === 'single' ? 'single' : 'block';
+      const blockBtn = document.getElementById('btn-note-scope-block');
+      const singleBtn = document.getElementById('btn-note-scope-single');
+      if (activeNotePopoverContext.scope === 'block') {
+        if (blockBtn) blockBtn.className = 'py-1.5 px-2 rounded-xl font-bold border-2 border-stone-900 bg-stone-900 text-amber-300 text-[11px] text-center transition cursor-pointer';
+        if (singleBtn) singleBtn.className = 'py-1.5 px-2 rounded-xl font-semibold border border-stone-300 bg-white text-stone-600 text-[11px] text-center transition cursor-pointer';
+      } else {
+        if (singleBtn) singleBtn.className = 'py-1.5 px-2 rounded-xl font-bold border-2 border-stone-900 bg-stone-900 text-amber-300 text-[11px] text-center transition cursor-pointer';
+        if (blockBtn) blockBtn.className = 'py-1.5 px-2 rounded-xl font-semibold border border-stone-300 bg-white text-stone-600 text-[11px] text-center transition cursor-pointer';
+      }
+      drawDailyGridCanvasFrame();
+    }
+
+    function closeGridNotePopover() {
+      activeNotePopoverContext = null;
+      const popover = document.getElementById('grid-note-popover');
+      if (popover) popover.classList.add('hidden');
+      drawDailyGridCanvasFrame();
+    }
+
+    function saveGridNoteFromPopover() {
+      if (!activeNotePopoverContext) return;
+      const textarea = document.getElementById('grid-note-textarea');
+      const text = textarea ? textarea.value.trim() : '';
+      const start = activeNotePopoverContext.scope === 'single'
+        ? activeNotePopoverContext.slotIdx
+        : activeNotePopoverContext.blockStart;
+      const end = activeNotePopoverContext.scope === 'single'
+        ? activeNotePopoverContext.slotIdx
+        : activeNotePopoverContext.blockEnd;
+
+      setNoteForSlotRange(state.selectedDate, start, end, text);
+      saveState();
+      closeGridNotePopover();
+      renderDailyGridNotesList();
+      drawDailyGridCanvasFrame();
+      if (state.currentView === 'month') renderMonthView();
+      showToast(text ? `📝 [${formatSlotRangeLabel(start, end)}] 세부사항이 저장되었습니다.` : '세부사항 메모를 비웠습니다.', text ? 'amber' : 'stone');
+    }
+
+    function deleteGridNoteFromPopover() {
+      if (!activeNotePopoverContext) return;
+      const start = activeNotePopoverContext.scope === 'single'
+        ? activeNotePopoverContext.slotIdx
+        : activeNotePopoverContext.blockStart;
+      const end = activeNotePopoverContext.scope === 'single'
+        ? activeNotePopoverContext.slotIdx
+        : activeNotePopoverContext.blockEnd;
+
+      setNoteForSlotRange(state.selectedDate, start, end, '');
+      saveState();
+      closeGridNotePopover();
+      renderDailyGridNotesList();
+      drawDailyGridCanvasFrame();
+      if (state.currentView === 'month') renderMonthView();
+      showToast('해당 구간의 세부사항 메모를 삭제했습니다.', 'stone');
+    }
+
+    // 하단 실시간 세부사항 목록에서 인라인 입력 시 즉시 반영
+    function onInlineBlockNoteChange(startSlot, endSlot, value) {
+      setNoteForSlotRange(state.selectedDate, startSlot, endSlot, value);
+      saveState();
+      drawDailyGridCanvasFrame();
+      renderDailyGridNotesList();
+      if (state.currentView === 'month') renderMonthView();
+    }
+
+    // 같은 물감으로 칠해진 인접한 두 구간을 하나로 병합
+    function mergeWithPreviousNoteBlock(prevStart, prevEnd, currStart, currEnd) {
+      const prevNote = getNoteForSlot(state.selectedDate, prevStart);
+      const currNote = getNoteForSlot(state.selectedDate, currStart);
+      const mergedNote = [prevNote, currNote].filter(Boolean).join(' · ');
+      setNoteForSlotRange(state.selectedDate, prevStart, currEnd, mergedNote);
+      saveState();
+      drawDailyGridCanvasFrame();
+      renderDailyGridNotesList();
+      showToast(`🔗 [${formatSlotRangeLabel(prevStart, currEnd)}] 구간으로 합쳤습니다.`, 'amber');
+    }
+
+    function escapeHtmlAttr(str) {
+      return (str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function renderDailyGridNotesList() {
+      const listEl = document.getElementById('daily-grid-notes-list');
+      const badgeEl = document.getElementById('daily-notes-summary-badge');
+      if (!listEl || !badgeEl) return;
+
+      const blocks = extractDailyColoredBlocks(state.selectedDate);
+      const totalSlots = blocks.reduce((acc, b) => acc + b.slotCount, 0);
+      const totalHours = (totalSlots / 6).toFixed(1);
+      badgeEl.textContent = `${blocks.length}개 구간 (${totalHours}h)`;
+
+      if (blocks.length === 0) {
+        listEl.innerHTML = `
+          <div class="text-center py-4 px-3 rounded-xl bg-white/70 border border-dashed border-stone-300 text-stone-400 text-xs">
+            위 그리드에 물감을 색칠하면 시간대별 세부사항 입력칸이 이곳에 자동으로 나타납니다.
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = blocks.map((b, idx) => {
+        const prevBlock = idx > 0 ? blocks[idx - 1] : null;
+        const ringStyle = b.paint.borderType === 'black'
+          ? 'border: 2px solid #18181b;'
+          : 'border: 2px solid #fbbf24;';
+        const borderBadge = b.paint.borderType === 'black' ? '⬛' : '✨';
+
+        const mergeBtnHtml = b.canMergePrev && prevBlock
+          ? `<button type="button" onclick="mergeWithPreviousNoteBlock(${prevBlock.startSlot}, ${prevBlock.endSlot}, ${b.startSlot}, ${b.endSlot})" class="px-1.5 py-0.5 rounded-md bg-stone-100 hover:bg-amber-100 text-stone-500 hover:text-amber-900 border border-stone-300 text-[10px] font-bold shrink-0 transition cursor-pointer" title="위 구간과 같은 물감입니다. 하나로 합치려면 클릭하세요.">🔗합치기</button>`
+          : '';
+
+        return `
+          <div class="flex flex-col sm:flex-row sm:items-center gap-1.5 bg-white px-2.5 py-2 rounded-xl border border-stone-200/90 shadow-2xs">
+            <div onclick="openGridNotePopover(${b.startSlot}, ${b.startSlot}, ${b.endSlot})" class="flex items-center gap-1.5 shrink-0 cursor-pointer hover:opacity-80 transition" title="클릭하여 구간 설정/메모 창 열기">
+              <span class="w-3.5 h-3.5 rounded-full shrink-0" style="background:${b.paint.color}; ${ringStyle}"></span>
+              <span class="font-mono text-[11px] font-extrabold text-stone-800 bg-stone-100 px-1.5 py-0.5 rounded-md border border-stone-200">${b.timeRangeStr}</span>
+              <span class="text-[10px] font-mono text-stone-400">(${b.durationMins}m)</span>
+              <span class="text-[11px] font-bold text-stone-700 max-w-[95px] truncate">${borderBadge}${b.paint.name}</span>
+            </div>
+            <div class="flex items-center gap-1 flex-1 min-w-0">
+              <input type="text"
+                     value="${escapeHtmlAttr(b.note)}"
+                     placeholder="세부사항 입력 (예: 한 일, 장소, 메모)..."
+                     onchange="onInlineBlockNoteChange(${b.startSlot}, ${b.endSlot}, this.value)"
+                     onkeydown="if(event.key==='Enter'){this.blur();}"
+                     class="w-full px-2.5 py-1 text-xs bg-stone-50/90 focus:bg-white border border-stone-200/90 focus:border-amber-400 rounded-lg text-stone-800 focus:outline-none transition" />
+              ${mergeBtnHtml}
+              <button type="button" onclick="openGridNotePopover(${b.startSlot}, ${b.startSlot}, ${b.endSlot})" class="p-1 rounded-lg hover:bg-stone-100 text-stone-400 hover:text-stone-700 text-xs shrink-0 transition cursor-pointer" title="세부사항 팝오버 열기">✎</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateDailyGridTooltip(clientX, clientY, cell) {
+      const tooltip = document.getElementById('daily-grid-tooltip');
+      if (!tooltip) return;
+      if (!cell || isGridPainting || activeNotePopoverContext) {
+        tooltip.classList.add('hidden');
+        return;
+      }
+      const grid = state.dayGrids[state.selectedDate] || [];
+      const pid = grid[cell.slotIdx];
+      const paint = getPaintById(pid, state.selectedDate);
+      if (!paint) {
+        tooltip.classList.add('hidden');
+        return;
+      }
+
+      const range = findContiguousSamePaintRange(state.selectedDate, cell.slotIdx);
+      const noteText = getNoteForSlot(state.selectedDate, cell.slotIdx);
+      const borderTag = paint.borderType === 'black' ? '⬛ 검은 테두리(부정)' : '✨ 황금 테두리(긍정)';
+
+      tooltip.classList.remove('hidden');
+      tooltip.style.left = (clientX + 14) + 'px';
+      tooltip.style.top = (clientY + 14) + 'px';
+      tooltip.innerHTML = `
+        <div class="flex items-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${paint.color};"></span>
+          <span class="font-bold text-amber-300">${paint.name}</span>
+          <span class="text-[10px] text-stone-400">${borderTag}</span>
+        </div>
+        <div class="text-[11px] font-mono text-stone-300">
+          칸 ${formatSlotRangeLabel(cell.slotIdx, cell.slotIdx)} · 연속 구간 ${formatSlotRangeLabel(range.startSlot, range.endSlot)} (${(range.endSlot - range.startSlot + 1) * 10}분)
+        </div>
+        ${noteText
+          ? `<div class="pt-1 border-t border-stone-700 text-white font-medium break-words">📝 ${escapeHtmlAttr(noteText)}</div>`
+          : `<div class="pt-1 border-t border-stone-800 text-[10px] text-stone-400">${state.gridInteractionMode === 'note' ? '클릭하여 세부사항 적기' : '우클릭 또는 더블클릭하여 세부사항 적기'}</div>`
+        }
+      `;
+    }
+
+    function hideDailyGridTooltip() {
+      const tooltip = document.getElementById('daily-grid-tooltip');
+      if (tooltip) tooltip.classList.add('hidden');
     }
 
     function computeDailyGridGeometry(canvas) {
@@ -2050,6 +2526,12 @@
 
             const nextVal = isEraser ? null : (activePaint ? activePaint.id : null);
             if (grid[cell.slotIdx] !== nextVal) {
+              // 지우개로 지우거나 다른 물감으로 덮어쓰면 기존 칸의 메모 정리
+              if (!nextVal || (grid[cell.slotIdx] && grid[cell.slotIdx] !== nextVal)) {
+                if (state.dayGridNotes && state.dayGridNotes[state.selectedDate]) {
+                  delete state.dayGridNotes[state.selectedDate][cell.slotIdx];
+                }
+              }
               grid[cell.slotIdx] = nextVal;
               cellChanged = true;
             }
@@ -2070,11 +2552,55 @@
       ensureGridTrailOffscreenCanvas();
       replayDailyGridTrailStrokes();
       drawDailyGridCanvasFrame();
+      renderDailyGridNotesList();
+
+      const noteTextarea = document.getElementById('grid-note-textarea');
+      if (noteTextarea) {
+        noteTextarea.addEventListener('keydown', (e) => {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            saveGridNoteFromPopover();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            closeGridNotePopover();
+          }
+        });
+      }
+
+      canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        const pt = getCanvasNormalizedPoint(canvas, e.clientX, e.clientY);
+        const cell = findGridCellAtPoint(pt.x, pt.y);
+        if (cell) {
+          openGridNotePopover(cell.slotIdx);
+        }
+      });
+
+      canvas.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        const pt = getCanvasNormalizedPoint(canvas, e.clientX, e.clientY);
+        const cell = findGridCellAtPoint(pt.x, pt.y);
+        if (cell) {
+          openGridNotePopover(cell.slotIdx);
+        }
+      });
 
       canvas.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
         e.preventDefault();
-        isGridPainting = true;
         const pt = getCanvasNormalizedPoint(canvas, e.clientX, e.clientY);
+
+        if (state.gridInteractionMode === 'note') {
+          const cell = findGridCellAtPoint(pt.x, pt.y);
+          if (cell) {
+            openGridNotePopover(cell.slotIdx);
+          }
+          return;
+        }
+
+        closeGridNotePopover();
+        hideDailyGridTooltip();
+        isGridPainting = true;
         lastGridPt = pt;
         hoverGridPt = pt;
         applyContinuousBrushStrokeToGrid(pt.x, pt.y, pt.x, pt.y, true);
@@ -2083,16 +2609,21 @@
       canvas.addEventListener('mousemove', (e) => {
         const pt = getCanvasNormalizedPoint(canvas, e.clientX, e.clientY);
         hoverGridPt = pt;
+        hoveredGridCell = findGridCellAtPoint(pt.x, pt.y);
+
         if (isGridPainting && lastGridPt) {
           applyContinuousBrushStrokeToGrid(lastGridPt.x, lastGridPt.y, pt.x, pt.y, true);
           lastGridPt = pt;
         } else {
+          updateDailyGridTooltip(e.clientX, e.clientY, hoveredGridCell);
           drawDailyGridCanvasFrame();
         }
       });
 
       canvas.addEventListener('mouseleave', () => {
         hoverGridPt = null;
+        hoveredGridCell = null;
+        hideDailyGridTooltip();
         drawDailyGridCanvasFrame();
       });
 
@@ -2101,15 +2632,26 @@
           isGridPainting = false;
           lastGridPt = null;
           saveState();
+          renderDailyGridNotesList();
         }
       });
 
       canvas.addEventListener('touchstart', (e) => {
         if (e.touches.length > 0) {
           e.preventDefault();
-          isGridPainting = true;
           const t = e.touches[0];
           const pt = getCanvasNormalizedPoint(canvas, t.clientX, t.clientY);
+
+          if (state.gridInteractionMode === 'note') {
+            const cell = findGridCellAtPoint(pt.x, pt.y);
+            if (cell) {
+              openGridNotePopover(cell.slotIdx);
+            }
+            return;
+          }
+
+          closeGridNotePopover();
+          isGridPainting = true;
           lastGridPt = pt;
           hoverGridPt = pt;
           applyContinuousBrushStrokeToGrid(pt.x, pt.y, pt.x, pt.y, true);
@@ -2135,6 +2677,7 @@
           hoverGridPt = null;
           saveState();
           drawDailyGridCanvasFrame();
+          renderDailyGridNotesList();
         }
       });
     }
@@ -2148,6 +2691,7 @@
       replayDailyGridTrailStrokes();
       drawDailyGridCanvasFrame();
       updateDailyMemoryGemUI();
+      renderDailyGridNotesList();
     }
 
     function drawDailyGridCanvasFrame() {
@@ -2190,14 +2734,25 @@
         ctx.drawImage(gridTrailOffscreen, 0, 0);
       }
 
-      // 144칸 렌더링 (물감 색상 + 황금 테두리 / 검은 테두리 구분)
+      // 144칸 렌더링 (물감 색상 + 황금 테두리 / 검은 테두리 구분 + 세부사항 메모 표시)
       const grid = state.dayGrids[state.selectedDate] || [];
       const pulse = currentPulseValue;
+
+      // 현재 팝오버가 열려있거나 메모 모드에서 호버 중인 구간 계산
+      let highlightRange = null;
+      if (activeNotePopoverContext) {
+        highlightRange = activeNotePopoverContext.scope === 'single'
+          ? { startSlot: activeNotePopoverContext.slotIdx, endSlot: activeNotePopoverContext.slotIdx }
+          : { startSlot: activeNotePopoverContext.blockStart, endSlot: activeNotePopoverContext.blockEnd };
+      } else if (state.gridInteractionMode === 'note' && hoveredGridCell && grid[hoveredGridCell.slotIdx]) {
+        highlightRange = findContiguousSamePaintRange(state.selectedDate, hoveredGridCell.slotIdx);
+      }
 
       for (const cell of gridCellRects) {
         const status = getTimeSlotStatus(state.selectedDate, cell.slotIdx);
         const paintId = grid[cell.slotIdx];
         const paint = getPaintById(paintId, state.selectedDate);
+        const noteText = getNoteForSlot(state.selectedDate, cell.slotIdx);
 
         ctx.save();
 
@@ -2225,19 +2780,16 @@
           ctx.fill();
 
           if (isBlackBorder) {
-            // 부정적인 일: 또렷한 먹색/검은색 테두리
             ctx.strokeStyle = '#18181b';
             ctx.lineWidth = 2.4;
             roundRectCanvas(ctx, cell.x, cell.y, cell.w, cell.h, 5);
             ctx.stroke();
 
-            // 내부 미세 코너 마크로 검은 테두리 시인성 강화
             ctx.fillStyle = '#18181b';
             ctx.beginPath();
             ctx.arc(cell.x + cell.w - 5, cell.y + 5, 1.8, 0, Math.PI * 2);
             ctx.fill();
           } else {
-            // 긍정적인 일: 반짝이는 황금색 테두리 + 은은한 골드 후광
             ctx.shadowColor = 'rgba(251, 191, 36, 0.55)';
             ctx.shadowBlur = 5;
             ctx.strokeStyle = '#fbbf24';
@@ -2246,11 +2798,37 @@
             ctx.stroke();
             ctx.shadowBlur = 0;
 
-            // 외곽 미세 골드 림
             ctx.strokeStyle = 'rgba(180, 83, 9, 0.35)';
             ctx.lineWidth = 0.8;
             roundRectCanvas(ctx, cell.x - 0.8, cell.y - 0.8, cell.w + 1.6, cell.h + 1.6, 5.5);
             ctx.stroke();
+          }
+
+          // 세부사항(메모)이 적힌 칸 시각적 표시
+          if (noteText) {
+            const isStartInRow =
+              cell.col === 0 ||
+              grid[cell.slotIdx - 1] !== paintId ||
+              getNoteForSlot(state.selectedDate, cell.slotIdx - 1) !== noteText;
+
+            if (isStartInRow) {
+              // 해당 행에서 메모가 시작되는 첫 칸: 반투명 다크 캡슐 + 요약 텍스트 표시
+              ctx.fillStyle = 'rgba(28, 25, 23, 0.38)';
+              roundRectCanvas(ctx, cell.x + 2, cell.y + 2.5, cell.w - 4, cell.h - 5, 3);
+              ctx.fill();
+
+              const shortLabel = noteText.length > 3 ? noteText.slice(0, 3) + '…' : noteText;
+              ctx.font = 'bold 8.5px Pretendard, sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillStyle = '#ffffff';
+              ctx.fillText(shortLabel, cell.cx, cell.cy + 3);
+            } else {
+              // 같은 행에서 동일한 메모가 이어지는 칸: 깔끔한 연결 점 표시
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
+              ctx.beginPath();
+              ctx.arc(cell.cx, cell.cy, 1.6, 0, Math.PI * 2);
+              ctx.fill();
+            }
           }
         } else {
           // 지나간 빈 시간 = 투명색 패턴
@@ -2273,6 +2851,21 @@
           ctx.setLineDash([]);
         }
 
+        // 세부사항 입력 대상 구간 하이라이트 링
+        if (highlightRange && cell.slotIdx >= highlightRange.startSlot && cell.slotIdx <= highlightRange.endSlot) {
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2.4;
+          roundRectCanvas(ctx, cell.x - 2, cell.y - 2, cell.w + 4, cell.h + 4, 6);
+          ctx.stroke();
+
+          ctx.setLineDash([3, 2]);
+          ctx.strokeStyle = '#d97706';
+          ctx.lineWidth = 1.6;
+          roundRectCanvas(ctx, cell.x - 2, cell.y - 2, cell.w + 4, cell.h + 4, 6);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
         // 현재 시간 칸 심장박동 붉은 파동 링
         if (status === 'current') {
           ctx.shadowColor = 'rgba(239, 68, 68, 0.75)';
@@ -2286,8 +2879,8 @@
         ctx.restore();
       }
 
-      // 마우스 호버 시 부드러운 원형 붓 프리뷰 가이드
-      if (hoverGridPt) {
+      // 색칠 모드일 때만 마우스 호버 원형 붓 프리뷰 가이드 표시
+      if (hoverGridPt && state.gridInteractionMode === 'paint' && !activeNotePopoverContext) {
         const activePaint = getPaintById(state.activePaintId) || state.fixedPaints[0];
         const brushColor = state.isEraserMode ? '#78716c' : (activePaint ? activePaint.color : '#f59e0b');
         const borderRingColor = state.isEraserMode
@@ -2349,68 +2942,14 @@
 
     function clearDayGrid() {
       state.dayGrids[state.selectedDate] = new Array(144).fill(null);
+      if (state.dayGridNotes) {
+        delete state.dayGridNotes[state.selectedDate];
+      }
       state.dayGridStrokesByDate[state.selectedDate] = [];
+      closeGridNotePopover();
       saveState();
       renderDailyGrid();
-      showToast(`${state.selectedDate} 시간 그리드를 비웠습니다.`, 'stone');
-    }
-
-    function fillSampleDayRoutine() {
-      if (!state.dayGrids[state.selectedDate]) {
-        state.dayGrids[state.selectedDate] = new Array(144).fill(null);
-      }
-      const grid = state.dayGrids[state.selectedDate];
-      state.dayGridStrokesByDate[state.selectedDate] = [];
-
-      for (let i = 0; i < 144; i++) {
-        const status = getTimeSlotStatus(state.selectedDate, i);
-        if (status === 'future' && state.lockFutureTime) {
-          grid[i] = null;
-          continue;
-        }
-        const hour = Math.floor(i / 6);
-        if (hour < 7 || hour >= 23) {
-          grid[i] = 'fix_rest';
-        } else if (hour === 7 || hour === 12 || hour === 18) {
-          grid[i] = 'fix_routine';
-        } else if (hour >= 9 && hour < 12) {
-          grid[i] = 'fix_focus';
-        } else if (hour >= 13 && hour < 17) {
-          grid[i] = (i % 6 < 2) ? 'fix_study' : 'fix_focus';
-        } else if (hour >= 17 && hour < 18) {
-          grid[i] = 'fix_exercise';
-        } else if (hour >= 21 && hour < 22) {
-          grid[i] = (i % 6 < 2) ? 'fix_bad_phone' : 'fix_study';
-        } else {
-          grid[i] = 'fix_study';
-        }
-      }
-
-      if (gridCellRects.length === 144) {
-        for (let r = 0; r < 24; r++) {
-          const firstStatus = getTimeSlotStatus(state.selectedDate, r * 6);
-          if (firstStatus === 'future' && state.lockFutureTime) continue;
-          const c0 = gridCellRects[r * 6];
-          const c5 = gridCellRects[r * 6 + 5];
-          const p = getPaintById(grid[r * 6], state.selectedDate);
-          if (c0 && c5 && p) {
-            state.dayGridStrokesByDate[state.selectedDate].push({
-              x1: Math.round(c0.cx),
-              y1: Math.round(c0.cy),
-              x2: Math.round(c5.cx),
-              y2: Math.round(c5.cy),
-              r: 18,
-              color: p.color,
-              isEraser: false
-            });
-          }
-        }
-      }
-
-      saveState();
-      renderDailyGrid();
-      autoSyncCircleFromGrid();
-      showToast('지나간 시간 칸들에 황금/검은 테두리 물감 샘플이 채색되었습니다!', 'amber');
+      showToast(`${state.selectedDate} 시간 그리드와 세부사항을 비웠습니다.`, 'stone');
     }
 
     /***************************************************************************
@@ -2547,6 +3086,13 @@
         descParts.push(`미래 ${futureCount}/6칸`);
       }
 
+      const hourNotes = [];
+      for (let m = 0; m < 6; m++) {
+        const n = getNoteForSlot(dateStr, startSlot + m);
+        if (n && !hourNotes.includes(n)) hourNotes.push(n);
+      }
+      const noteSuffix = hourNotes.length > 0 ? ` | 📝 ${hourNotes.join(' · ')}` : '';
+
       // 색칠된 칸이 있을 때만 황금/검정 테두리를 부여하고, 빈 과거+미래만 섞인 경우 점선 테두리 적용
       const borderStyle = (goldCount === 0 && blackCount === 0)
         ? 'border: 1px dashed rgba(120, 113, 108, 0.35)'
@@ -2572,14 +3118,14 @@
             `background-repeat: no-repeat, repeat, repeat, repeat, repeat`,
             borderStyle
           ].join('; '),
-          tooltip: `${dateStr} ${String(hour).padStart(2, '0')}시: ${descParts.join(', ')}`
+          tooltip: `${dateStr} ${String(hour).padStart(2, '0')}시: ${descParts.join(', ')}${noteSuffix}`
         };
       }
 
       return {
         extraClass: '',
         style: `background-image: linear-gradient(90deg, ${stops.join(', ')}); background-size: 100% 100%; background-repeat: no-repeat; ${borderStyle};`,
-        tooltip: `${dateStr} ${String(hour).padStart(2, '0')}시: ${descParts.join(', ')}`
+        tooltip: `${dateStr} ${String(hour).padStart(2, '0')}시: ${descParts.join(', ')}${noteSuffix}`
       };
     }
 
@@ -2712,6 +3258,21 @@
     let renderedGrassTufts = [];
     let renderedFoliagePuffs = [];
 
+    function toggleLifeOverlays() {
+      state.showLifeOverlays = !state.showLifeOverlays;
+      const badgesEl = document.getElementById('life-overlay-badges');
+      const canvasBtn = document.getElementById('btn-canvas-life-overlay');
+
+      if (state.showLifeOverlays) {
+        if (badgesEl) badgesEl.classList.remove('hidden');
+        if (canvasBtn) canvasBtn.textContent = '👁️ 숨기기';
+      } else {
+        if (badgesEl) badgesEl.classList.add('hidden');
+        if (canvasBtn) canvasBtn.textContent = '👁️ 표시';
+      }
+      drawLifeNetworkFrame();
+    }
+
     function changeLifeRhythmMode(mode) {
       if (!LIFE_RHYTHM_CONFIGS[mode]) return;
       state.lifeRhythmMode = mode;
@@ -2722,9 +3283,10 @@
       if (heartIcon) heartIcon.textContent = cfg.icon;
 
       lifePulseWaves = [];
-      if (mode !== 'calm_heart') {
+      if (state.isPulseWaveActive && mode !== 'calm_heart') {
         spawnLifePulseWave(cfg.intensity);
       }
+      drawLifeNetworkFrame();
     }
 
     function updateLifeSettings() {
@@ -2736,19 +3298,52 @@
       buildLifeNetworkGeometry();
     }
 
-    function triggerManualPulseWave() {
-      const cfg = LIFE_RHYTHM_CONFIGS[state.lifeRhythmMode] || LIFE_RHYTHM_CONFIGS.breath;
-      lifePulseWaves.push({
-        distance: 0,
-        speed: cfg.waveSpeed || 0.16,
-        width: cfg.waveWidth || 0.34,
-        intensity: 0.85
-      });
-      showToast('✨ 대지의 뿌리에서부터 거목의 수관 끝까지 생명 파동이 피어오릅니다.', 'amber');
+    function togglePulseWave() {
+      state.isPulseWaveActive = !state.isPulseWaveActive;
+      const btn = document.getElementById('btn-pulse-wave');
+      if (state.isPulseWaveActive) {
+        if (btn) {
+          btn.className = 'px-2.5 py-1 rounded-lg bg-stone-900 text-amber-300 border border-amber-400 ring-2 ring-amber-300/50 font-bold text-xs transition cursor-pointer shadow-xs';
+        }
+        lifePulseWaves = [];
+        const cfg = LIFE_RHYTHM_CONFIGS[state.lifeRhythmMode] || LIFE_RHYTHM_CONFIGS.breath;
+        lifePulseWaves.push({
+          distance: 0,
+          speed: cfg.waveSpeed || 0.16,
+          width: cfg.waveWidth || 0.34,
+          intensity: 0.85
+        });
+        showToast('✨ 숨결 파동이 켜졌습니다.', 'amber');
+      } else {
+        if (btn) {
+          btn.className = 'px-2.5 py-1 rounded-lg bg-white hover:bg-stone-200 text-stone-700 border border-stone-300 font-bold text-xs transition cursor-pointer';
+        }
+        lifePulseWaves = [];
+        showToast('숨결 파동이 꺼졌습니다.', 'stone');
+      }
+      drawLifeNetworkFrame();
+    }
+
+    function toggleGoldenShine() {
+      state.isGoldenShineActive = !state.isGoldenShineActive;
+      const btn = document.getElementById('btn-golden-shine');
+      if (state.isGoldenShineActive) {
+        if (btn) {
+          btn.className = 'px-2.5 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-stone-950 border border-amber-500 ring-2 ring-amber-300 font-extrabold text-xs transition cursor-pointer shadow-xs';
+        }
+        showToast('🌟 지난 시간의 모든 잎사귀가 황금빛으로 빛납니다!', 'amber');
+      } else {
+        if (btn) {
+          btn.className = 'px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100 text-stone-800 border border-amber-300 font-bold text-xs transition cursor-pointer';
+        }
+        showToast('원래의 기록 상태로 돌아왔습니다.', 'stone');
+      }
+      buildLifeNetworkGeometry();
+      drawLifeNetworkFrame();
     }
 
     function spawnLifePulseWave(customIntensity) {
-      if (state.lifeRhythmMode === 'calm_heart') return;
+      if (!state.isPulseWaveActive || state.lifeRhythmMode === 'calm_heart') return;
       const cfg = LIFE_RHYTHM_CONFIGS[state.lifeRhythmMode] || LIFE_RHYTHM_CONFIGS.breath;
       if (lifePulseWaves.some(w => w.distance < 0.35)) return;
 
@@ -2770,6 +3365,20 @@
       }
 
       const isCurrentQuarter = now >= quarterStartDate && now <= quarterEndDate;
+
+      // [🌟 빛나기] 모드가 켜져 있을 때: 일 단위 입력 데이터와 무관하게 지나온 시간의 칸들이 임의적인 황금색으로 빛남
+      if (state.isGoldenShineActive) {
+        const rand = seededRandom(qIndex * 37 + 13);
+        const shineRatio = 0.78 + rand * 0.22; // 78% ~ 100% 사이의 찬란한 황금빛 농도
+        return {
+          status: isCurrentQuarter ? 'current' : 'past_data',
+          goldRatio: shineRatio,
+          colorCss: interpolateBlackToGold(shineRatio),
+          isGoldenShine: true,
+          sampleCount: '빛나기 모드'
+        };
+      }
+
       let sumGold = 0;
       let countDays = 0;
 
@@ -2782,16 +3391,6 @@
             countDays++;
           }
         }
-      }
-
-      if (countDays === 0 && state.simulatedQuarterMemory[qIndex] !== undefined) {
-        const simRatio = state.simulatedQuarterMemory[qIndex];
-        return {
-          status: isCurrentQuarter ? 'current' : 'past_data',
-          goldRatio: simRatio,
-          colorCss: interpolateBlackToGold(simRatio),
-          sampleCount: '시뮬레이션'
-        };
       }
 
       if (countDays === 0) {
@@ -3078,7 +3677,7 @@
     }
 
     function getWaveVibrationAtDistance(waveDist) {
-      if (state.lifeRhythmMode === 'calm_heart') return 0;
+      if (!state.isPulseWaveActive || state.lifeRhythmMode === 'calm_heart') return 0;
       let totalWave = 0;
       for (const w of lifePulseWaves) {
         const diff = Math.abs(waveDist - w.distance);
@@ -3360,15 +3959,25 @@
           ctx.stroke();
           ctx.setLineDash([]);
         } else {
-          // 기록된 과거 마디 = (*) 황금 테두리/검은 테두리 기억 농도 색상 잎사귀
-          ctx.fillStyle = node.colorCss;
+          // 기록된 과거 마디 또는 [🌟 빛나기] 모드의 황금 잎사귀
+          if (node.isGoldenShine) {
+            ctx.shadowColor = `rgba(255, 215, 0, ${0.65 + breath * 0.25})`;
+            ctx.shadowBlur = 9 + breath * 5;
+            const goldGrad = ctx.createLinearGradient(-leafW * 0.5, -leafH * 0.5, leafW * 0.5, leafH * 0.5);
+            goldGrad.addColorStop(0, '#d97706');
+            goldGrad.addColorStop(0.5, '#fbbf24');
+            goldGrad.addColorStop(1, '#fef08a');
+            ctx.fillStyle = goldGrad;
+          } else {
+            ctx.fillStyle = node.colorCss;
+          }
           drawOrganicLeafShape(ctx, leafW, leafH);
           ctx.fill();
 
-          ctx.strokeStyle = waveAmp > 0.15
-            ? `rgba(254, 240, 138, ${0.6 + waveAmp * 0.4})`
+          ctx.strokeStyle = (node.isGoldenShine || waveAmp > 0.15)
+            ? `rgba(254, 240, 138, ${0.75 + waveAmp * 0.25})`
             : (node.goldRatio >= 0.55 ? '#fde047' : 'rgba(255, 255, 255, 0.35)');
-          ctx.lineWidth = 1.1 + waveAmp * 0.6;
+          ctx.lineWidth = (node.isGoldenShine ? 1.4 : 1.1) + waveAmp * 0.6;
           ctx.stroke();
         }
 
@@ -3384,26 +3993,6 @@
 
         ctx.restore();
       }
-
-      // 8. 좌측 수관 높이별 나이(연령대) 가이드 표시
-      ctx.save();
-      ctx.textAlign = 'right';
-      ctx.font = 'bold 11px Pretendard, monospace';
-      const crownTopY = 54;
-      const crownBottomY = forkY + 25;
-      const ageSteps = [0, 20, 40, 60, state.lifeExpectancy];
-      for (const age of ageSteps) {
-        const p = Math.min(1, Math.max(0, age / state.lifeExpectancy));
-        const y = crownBottomY - Math.pow(p, 0.88) * (crownBottomY - crownTopY);
-        ctx.fillStyle = 'rgba(163, 230, 53, 0.55)';
-        ctx.fillText(`${age}세 수관 —`, 82, y + 4);
-      }
-
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(190, 242, 100, 0.88)';
-      ctx.font = 'bold 11px Pretendard, sans-serif';
-      ctx.fillText('🌳 생애의 거목 (0세 잔디 뿌리 ➔ 줄기 ➔ 3개월 잎사귀 수관) — 호흡과 수액 리듬을 따라 기억의 잎사귀가 빛납니다', cx, H - 10);
-      ctx.restore();
     }
 
     function roundRectCanvas(ctx, x, y, w, h, r) {
@@ -3629,6 +4218,7 @@
 
     function onDatePickerChange(dateStr) {
       if (!dateStr) return;
+      closeGridNotePopover();
       state.selectedDate = dateStr;
       const parts = dateStr.split('-').map(Number);
       state.selectedMonthYear = { year: parts[0], month: parts[1] };
@@ -4243,6 +4833,7 @@ if __name__ == "__main__":
         toggleEraserMode();
       } else if (e.key === 'Escape') {
         closeArtistPalette();
+        closeGridNotePopover();
         document.getElementById('time-settings-popover').classList.add('hidden');
         document.getElementById('memory-gem-popover').classList.add('hidden');
       }
@@ -4265,11 +4856,7 @@ if __name__ == "__main__":
       initCircularCanvases();
       initLifeCanvasInteractions();
 
-      if (!hasSaved) {
-        fillSampleDayRoutine();
-      } else {
-        renderDailyGrid();
-      }
+      renderDailyGrid();
 
       startHeartbeatEngine();
 
